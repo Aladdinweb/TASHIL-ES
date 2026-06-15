@@ -1,18 +1,19 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
 DAO — Congés Annuels & Reliquats
-Calculs, enregistrements, et mises à jour des soldes.
+Délègue la déduction au moteur prioritaire (deduction_engine).
 """
 import datetime
 from app.utils.database import get_connection
+from app.utils.deduction_engine import (
+    enregistrer_conge_prioritaire,
+    solde_total_disponible,
+    obtenir_soldes_ordonnes,
+    calculer_plan_deduction,
+)
 
 
-# ── Calcul du nombre de jours ouvrables ──────────────────────────
 def calculer_jours(date_debut: str, date_fin: str) -> int:
-    """
-    Retourne le nombre de jours calendaires inclus entre date_debut
-    et date_fin (les deux bornes comprises), format YYYY-MM-DD.
-    """
     d1 = datetime.date.fromisoformat(date_debut)
     d2 = datetime.date.fromisoformat(date_fin)
     if d2 < d1:
@@ -20,30 +21,35 @@ def calculer_jours(date_debut: str, date_fin: str) -> int:
     return (d2 - d1).days + 1
 
 
-# ── Soldes ────────────────────────────────────────────────────────
 def lister_soldes(employe_id: int = None,
                   annee: int = None,
-                  dept_id: int = None) -> list:
+                  dept_id: int = None,
+                  poly_id: int = None) -> list:
     conn = get_connection()
     sql = """
         SELECT ca.id, ca.employe_id, ca.annee,
                ca.jours_initiaux, ca.jours_utilises,
                (ca.jours_initiaux - ca.jours_utilises) AS restant,
+               ca.est_reporte, ca.date_cloture,
                e.matricule, e.nom, e.prenom, e.grade,
                e.est_manip_radio,
-               d.id AS dept_id, d.code AS dept_code, d.nom AS dept_nom
+               d.id AS dept_id, d.code AS dept_code, d.nom AS dept_nom,
+               p.nom AS poly_nom
         FROM conges_annuels ca
         JOIN employes e ON e.id = ca.employe_id
         JOIN departements d ON d.id = e.departement_id
+        LEFT JOIN polycliniques p ON p.id = e.polyclinique_id
         WHERE e.actif = 1
     """
     params = []
     if employe_id:
-        sql += " AND ca.employe_id = ?"; params.append(employe_id)
+        sql += " AND ca.employe_id = ?";  params.append(employe_id)
     if annee:
-        sql += " AND ca.annee = ?";      params.append(annee)
+        sql += " AND ca.annee = ?";       params.append(annee)
     if dept_id:
-        sql += " AND d.id = ?";          params.append(dept_id)
+        sql += " AND d.id = ?";           params.append(dept_id)
+    if poly_id:
+        sql += " AND e.polyclinique_id = ?"; params.append(poly_id)
     sql += " ORDER BY ca.annee DESC, d.code, e.nom, e.prenom"
     rows = conn.execute(sql, params).fetchall()
     conn.close()
@@ -54,7 +60,8 @@ def obtenir_solde(employe_id: int, annee: int) -> dict | None:
     conn = get_connection()
     row = conn.execute("""
         SELECT id, employe_id, annee, jours_initiaux, jours_utilises,
-               (jours_initiaux - jours_utilises) AS restant
+               (jours_initiaux - jours_utilises) AS restant,
+               est_reporte, date_cloture
         FROM conges_annuels
         WHERE employe_id = ? AND annee = ?
     """, (employe_id, annee)).fetchone()
@@ -65,7 +72,6 @@ def obtenir_solde(employe_id: int, annee: int) -> dict | None:
 def creer_ou_obtenir_solde(employe_id: int,
                             annee: int,
                             jours_initiaux: float = 30.0) -> dict:
-    """Crée le solde s'il n'existe pas encore, sinon retourne l'existant."""
     conn = get_connection()
     conn.execute("""
         INSERT OR IGNORE INTO conges_annuels
@@ -91,7 +97,34 @@ def modifier_solde_initial(conge_id: int,
     return True
 
 
-# ── Mouvements (prises de congé) ─────────────────────────────────
+def enregistrer_mouvement(data: dict) -> list:
+    """
+    Enregistre une prise de congé via le moteur prioritaire.
+    Retourne la liste des mouvements créés (un par reliquat impacté).
+    """
+    return enregistrer_conge_prioritaire(
+        employe_id=data["employe_id"],
+        nb_jours=data["nb_jours"],
+        date_debut=data["date_debut"],
+        date_fin=data["date_fin"],
+        type_conge=data.get("type_conge", "CONGE_ANNUEL"),
+        observation=data.get("observation", ""),
+    )
+
+
+def apercu_deduction(employe_id: int,
+                      nb_jours: float) -> list | None:
+    """
+    Retourne le plan de déduction sans l'exécuter.
+    Utile pour l'affichage préalable dans le formulaire.
+    """
+    return calculer_plan_deduction(employe_id, nb_jours)
+
+
+def total_disponible(employe_id: int) -> float:
+    return solde_total_disponible(employe_id)
+
+
 def lister_mouvements(employe_id: int = None,
                        conge_id: int = None) -> list:
     conn = get_connection()
@@ -117,66 +150,7 @@ def lister_mouvements(employe_id: int = None,
     return [dict(r) for r in rows]
 
 
-def enregistrer_mouvement(data: dict) -> int:
-    """
-    Enregistre une prise de congé et met à jour le solde.
-    data doit contenir :
-        employe_id, conge_id, type_conge,
-        date_debut (YYYY-MM-DD), date_fin (YYYY-MM-DD),
-        nb_jours, observation (optionnel)
-    """
-    conn = get_connection()
-
-    # Vérifier le solde disponible
-    row = conn.execute("""
-        SELECT jours_initiaux, jours_utilises,
-               (jours_initiaux - jours_utilises) AS restant
-        FROM conges_annuels WHERE id = ?
-    """, (data["conge_id"],)).fetchone()
-
-    if not row:
-        conn.close()
-        raise ValueError("Solde introuvable.")
-
-    if data["nb_jours"] > row["restant"]:
-        conn.close()
-        raise ValueError(
-            f"Solde insuffisant : {row['restant']:.0f} j disponibles, "
-            f"{data['nb_jours']:.0f} j demandés."
-        )
-
-    # Insérer le mouvement
-    cur = conn.execute("""
-        INSERT INTO mouvements_conge
-            (employe_id, conge_id, type_conge,
-             date_debut, date_fin, nb_jours, observation)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        data["employe_id"],
-        data["conge_id"],
-        data["type_conge"],
-        data["date_debut"],
-        data["date_fin"],
-        data["nb_jours"],
-        data.get("observation", ""),
-    ))
-    mouvement_id = cur.lastrowid
-
-    # Mettre à jour le solde
-    conn.execute("""
-        UPDATE conges_annuels
-        SET jours_utilises = jours_utilises + ?,
-            updated_at = datetime('now','localtime')
-        WHERE id = ?
-    """, (data["nb_jours"], data["conge_id"]))
-
-    conn.commit()
-    conn.close()
-    return mouvement_id
-
-
 def annuler_mouvement(mouvement_id: int) -> bool:
-    """Annule un mouvement et restitue les jours au solde."""
     conn = get_connection()
     row = conn.execute(
         "SELECT conge_id, nb_jours FROM mouvements_conge WHERE id = ?",
@@ -198,7 +172,6 @@ def annuler_mouvement(mouvement_id: int) -> bool:
     return True
 
 
-# ── Utilitaires ───────────────────────────────────────────────────
 def annees_disponibles() -> list:
     conn = get_connection()
     rows = conn.execute(
@@ -213,9 +186,11 @@ def lister_employes_actifs() -> list:
     rows = conn.execute("""
         SELECT e.id, e.matricule, e.nom, e.prenom,
                e.grade, e.est_manip_radio,
-               d.code AS dept_code, d.nom AS dept_nom
+               d.code AS dept_code, d.nom AS dept_nom,
+               p.nom AS poly_nom
         FROM employes e
         JOIN departements d ON d.id = e.departement_id
+        LEFT JOIN polycliniques p ON p.id = e.polyclinique_id
         WHERE e.actif = 1
         ORDER BY d.code, e.nom, e.prenom
     """).fetchall()

@@ -1,7 +1,7 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
 Dialogue : Enregistrement d'une prise de congé — EPSP ES-SENIA
-Supporte : Congé Annuel, Dis-Intox, Semestre (MANIP-RADIO)
+Affiche le plan de déduction prioritaire avant confirmation.
 """
 import datetime
 import customtkinter as ctk
@@ -9,35 +9,23 @@ from app.utils.theme import COULEURS, POLICES, DIMENSIONS
 from app.views.dialogue_base import DialogueBase
 from app.utils import conges_dao
 
-TYPES_CONGE = {
-    "CONGE_ANNUEL": "Congé Annuel",
-    "DIS_INTOX":    "Dis-Intox (protection radiation)",
-    "SEMESTRE":     "Semestre (protection radiation)",
-}
-
 
 class DialogueConge(DialogueBase):
-    """
-    Formulaire d'enregistrement d'une prise de congé.
-    - employe_data : dict avec id, nom, prenom, est_manip_radio, …
-    - solde_data   : dict avec id (conge_id), annee, restant, …
-    """
-
     def __init__(self, parent, employe_data: dict,
                  solde_data: dict, callback_succes=None):
-        self._emp   = employe_data
-        self._solde = solde_data
+        self._emp      = employe_data
+        self._solde    = solde_data
         self._callback = callback_succes
+        self._nb_jours_calcules = 0
         titre = (f"Enregistrer un congé — "
                  f"{employe_data['nom']} {employe_data['prenom']}")
         super().__init__(parent, titre=titre,
-                         largeur=560, hauteur=560)
+                         largeur=580, hauteur=620)
 
     def _construire_corps(self):
         pad = 20
         corps = self.frame_corps
         emp   = self._emp
-        solde = self._solde
 
         def sep(texte):
             f = ctk.CTkFrame(corps, fg_color="transparent")
@@ -46,41 +34,70 @@ class DialogueConge(DialogueBase):
                          text_color=COULEURS["accent_bleu"]).pack(side="left")
             ctk.CTkFrame(f, height=1,
                          fg_color=COULEURS["bordure_active"]).pack(
-                             side="left", fill="x", expand=True, padx=(8, 0))
+                         side="left", fill="x", expand=True, padx=(8, 0))
 
-        # ── Récapitulatif employé ────────────────────────────
-        sep("Récapitulatif")
-        frame_recap = ctk.CTkFrame(corps,
-                                   fg_color=COULEURS["bg_carte"],
-                                   corner_radius=8)
-        frame_recap.pack(fill="x", padx=pad, pady=(0, 4))
+        # ── Récapitulatif soldes disponibles ─────────────────
+        sep("Soldes disponibles (ordre de déduction)")
+        frame_soldes = ctk.CTkFrame(corps,
+                                    fg_color=COULEURS["bg_carte"],
+                                    corner_radius=8)
+        frame_soldes.pack(fill="x", padx=pad, pady=(0, 6))
 
-        def ligne_recap(label, valeur, couleur_val=None):
-            f = ctk.CTkFrame(frame_recap, fg_color="transparent")
-            f.pack(fill="x", padx=12, pady=3)
-            ctk.CTkLabel(f, text=label, font=POLICES["petit"],
-                         text_color=COULEURS["texte_secondaire"],
-                         width=120, anchor="w").pack(side="left")
-            ctk.CTkLabel(f, text=valeur, font=POLICES["corps_bold"],
-                         text_color=couleur_val or COULEURS["texte_principal"],
-                         anchor="w").pack(side="left")
+        soldes_ordonnes = conges_dao.obtenir_soldes_ordonnes(
+            emp["id"]) if hasattr(conges_dao, 'obtenir_soldes_ordonnes') \
+            else []
 
-        ligne_recap("Employé :",
-                    f"{emp['nom']} {emp['prenom']}")
-        ligne_recap("Grade :",    emp.get("grade", ""))
-        ligne_recap("Année :",    str(solde["annee"]))
-        restant = solde["restant"]
-        couleur_r = (COULEURS["accent_vert"] if restant > 10
-                     else COULEURS["accent_orange"] if restant > 0
-                     else COULEURS["accent_rouge"])
-        ligne_recap("Solde restant :",
-                    f"{restant:.0f} jour(s)", couleur_val=couleur_r)
+        # Import direct du moteur
+        from app.utils.deduction_engine import obtenir_soldes_ordonnes
+        soldes_ordonnes = obtenir_soldes_ordonnes(emp["id"])
+        total_dispo = sum(s["restant"] for s in soldes_ordonnes)
 
-        # ── Type de congé ────────────────────────────────────
-        sep("Type de congé")
-        types_disponibles = ["Congé Annuel"]
+        if soldes_ordonnes:
+            for idx, s in enumerate(soldes_ordonnes):
+                f = ctk.CTkFrame(frame_soldes, fg_color="transparent")
+                f.pack(fill="x", padx=12, pady=3)
+                priorite = f"{'①②③④⑤'[idx] if idx < 5 else str(idx+1)}"
+                coul = (COULEURS["accent_orange"]
+                        if s["annee"] < datetime.date.today().year
+                        else COULEURS["accent_vert"])
+                ctk.CTkLabel(f,
+                             text=f"{priorite}  {s['annee']}",
+                             font=POLICES["corps_bold"],
+                             text_color=coul,
+                             width=100, anchor="w").pack(side="left")
+                ctk.CTkLabel(f,
+                             text=f"{s['restant']:.0f} j disponibles",
+                             font=POLICES["corps"],
+                             text_color=COULEURS["texte_principal"]).pack(
+                                 side="left")
+                if idx == 0 and len(soldes_ordonnes) > 1:
+                    ctk.CTkLabel(f, text="← prioritaire",
+                                 font=POLICES["petit"],
+                                 text_color=COULEURS["accent_orange"]).pack(
+                                     side="left", padx=(8, 0))
+        else:
+            ctk.CTkLabel(frame_soldes,
+                         text="Aucun solde disponible.",
+                         font=POLICES["corps"],
+                         text_color=COULEURS["accent_rouge"]).pack(pady=8)
+
+        # Total
+        f_total = ctk.CTkFrame(frame_soldes, fg_color="transparent")
+        f_total.pack(fill="x", padx=12, pady=(4, 8))
+        ctk.CTkFrame(frame_soldes, height=1,
+                     fg_color=COULEURS["bordure"]).pack(
+                         fill="x", padx=12, pady=(0, 6))
+        ctk.CTkLabel(frame_soldes,
+                     text=f"TOTAL DISPONIBLE : {total_dispo:.0f} jour(s)",
+                     font=POLICES["corps_bold"],
+                     text_color=COULEURS["texte_principal"]).pack(
+                         padx=12, pady=(0, 8), anchor="w")
+
+        # ── Type de congé ─────────────────────────────────────
+        sep("Type & Période")
+        types_dispo = ["Congé Annuel"]
         if emp.get("est_manip_radio"):
-            types_disponibles += [
+            types_dispo += [
                 "Dis-Intox (protection radiation)",
                 "Semestre (protection radiation)"
             ]
@@ -91,7 +108,7 @@ class DialogueConge(DialogueBase):
                      font=POLICES["corps_bold"],
                      text_color=COULEURS["texte_secondaire"]).pack(anchor="w")
         self.m_type = ctk.CTkOptionMenu(
-            f_type, values=types_disponibles,
+            f_type, values=types_dispo,
             fg_color=COULEURS["bg_champ"],
             button_color=COULEURS["accent_bleu"],
             button_hover_color=COULEURS["accent_bleu_clair"],
@@ -99,13 +116,11 @@ class DialogueConge(DialogueBase):
             dropdown_hover_color=COULEURS["bg_hover"],
             text_color=COULEURS["texte_principal"],
             dropdown_text_color=COULEURS["texte_principal"],
-            font=POLICES["corps"], dropdown_font=POLICES["corps"],
-            corner_radius=DIMENSIONS["rayon_bouton"], height=38)
+            font=POLICES["corps"], height=38,
+            corner_radius=DIMENSIONS["rayon_bouton"])
         self.m_type.pack(fill="x", pady=(4, 0))
 
-        # ── Dates ────────────────────────────────────────────
-        sep("Période du congé")
-
+        # Dates côte à côte
         frame_dates = ctk.CTkFrame(corps, fg_color="transparent")
         frame_dates.pack(fill="x", padx=pad, pady=(0, 10))
         frame_dates.columnconfigure(0, weight=1)
@@ -114,10 +129,11 @@ class DialogueConge(DialogueBase):
         def champ_date(parent_f, label, col):
             f = ctk.CTkFrame(parent_f, fg_color="transparent")
             f.grid(row=0, column=col,
-                   padx=(0, 8) if col == 0 else (8, 0), sticky="ew")
+                   padx=(0, 6) if col == 0 else (6, 0), sticky="ew")
             ctk.CTkLabel(f, text=label + "  *",
                          font=POLICES["corps_bold"],
-                         text_color=COULEURS["texte_secondaire"]).pack(anchor="w")
+                         text_color=COULEURS["texte_secondaire"]).pack(
+                             anchor="w")
             e = ctk.CTkEntry(
                 f, placeholder_text="JJ/MM/AAAA",
                 fg_color=COULEURS["bg_champ"],
@@ -131,23 +147,21 @@ class DialogueConge(DialogueBase):
 
         self.e_debut = champ_date(frame_dates, "Du (date début)", 0)
         self.e_fin   = champ_date(frame_dates, "Au (date fin)",   1)
+        self.e_debut.bind("<FocusOut>", lambda e: self._calculer_et_apercu())
+        self.e_fin.bind("<FocusOut>",   lambda e: self._calculer_et_apercu())
 
-        # Calcul automatique à la saisie
-        self.e_debut.bind("<FocusOut>", lambda e: self._calculer_jours())
-        self.e_fin.bind("<FocusOut>",   lambda e: self._calculer_jours())
-
-        # Affichage résultat calcul
-        self.frame_calcul = ctk.CTkFrame(
-            corps, fg_color=COULEURS["bg_carte"],
-            corner_radius=8)
-        self.frame_calcul.pack(fill="x", padx=pad, pady=(0, 10))
-
-        self.lbl_calcul = ctk.CTkLabel(
-            self.frame_calcul,
-            text="Saisissez les dates pour calculer la durée.",
+        # ── Zone aperçu déduction ─────────────────────────────
+        sep("Aperçu de la déduction automatique")
+        self.frame_apercu = ctk.CTkFrame(corps,
+                                          fg_color=COULEURS["bg_carte"],
+                                          corner_radius=8)
+        self.frame_apercu.pack(fill="x", padx=pad, pady=(0, 10))
+        self.lbl_apercu = ctk.CTkLabel(
+            self.frame_apercu,
+            text="Saisissez les dates pour voir la répartition.",
             font=POLICES["corps"],
             text_color=COULEURS["texte_secondaire"])
-        self.lbl_calcul.pack(pady=10, padx=12)
+        self.lbl_apercu.pack(pady=10, padx=12)
 
         # Observation
         f_obs = ctk.CTkFrame(corps, fg_color="transparent")
@@ -165,16 +179,18 @@ class DialogueConge(DialogueBase):
             corner_radius=DIMENSIONS["rayon_bouton"])
         self.e_obs.pack(fill="x", pady=(4, 0))
 
-        # Label erreur
         self._lbl_erreur = ctk.CTkLabel(
             corps, text="", font=POLICES["corps"],
             text_color=COULEURS["accent_rouge"],
             fg_color="#2D1515", corner_radius=6)
 
-        # Bouton enregistrer renommé
         self.btn_valider.configure(text="Enregistrer le congé")
 
-    def _parse_date(self, texte: str) -> datetime.date | None:
+        # Désactiver si aucun solde
+        if not soldes_ordonnes:
+            self.btn_valider.configure(state="disabled")
+
+    def _parse_date(self, texte: str):
         texte = texte.strip()
         for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
             try:
@@ -183,52 +199,89 @@ class DialogueConge(DialogueBase):
                 continue
         return None
 
-    def _calculer_jours(self):
+    def _calculer_et_apercu(self):
         d1 = self._parse_date(self.e_debut.get())
         d2 = self._parse_date(self.e_fin.get())
         if not d1 or not d2:
             return
         if d2 < d1:
-            self.lbl_calcul.configure(
-                text="⚠  La date de fin est antérieure à la date de début.",
+            self.lbl_apercu.configure(
+                text="⚠  Date de fin antérieure à la date de début.",
                 text_color=COULEURS["accent_rouge"])
             return
+
         nb = (d2 - d1).days + 1
-        restant = self._solde["restant"]
-        couleur = (COULEURS["accent_vert"] if nb <= restant
-                   else COULEURS["accent_rouge"])
-        self.lbl_calcul.configure(
-            text=f"Durée calculée : {nb} jour(s)   |   "
-                 f"Solde restant après : {restant - nb:.0f} jour(s)",
-            text_color=couleur)
         self._nb_jours_calcules = nb
 
+        # Calculer le plan de déduction
+        plan = conges_dao.apercu_deduction(self._emp["id"], nb)
+
+        # Vider l'aperçu
+        for w in self.frame_apercu.winfo_children():
+            w.destroy()
+
+        if plan is None:
+            total = conges_dao.total_disponible(self._emp["id"])
+            ctk.CTkLabel(
+                self.frame_apercu,
+                text=f"⚠  Solde insuffisant : {total:.0f} j dispo, "
+                     f"{nb} j demandés.",
+                font=POLICES["corps"],
+                text_color=COULEURS["accent_rouge"]).pack(
+                    pady=10, padx=12)
+            return
+
+        # Afficher le plan ligne par ligne
+        f_titre = ctk.CTkFrame(self.frame_apercu,
+                                fg_color="transparent")
+        f_titre.pack(fill="x", padx=12, pady=(8, 4))
+        ctk.CTkLabel(f_titre,
+                     text=f"Durée : {nb} jour(s)  |  "
+                          f"Répartition sur {len(plan)} reliquat(s) :",
+                     font=POLICES["corps_bold"],
+                     text_color=COULEURS["texte_principal"]).pack(
+                         anchor="w")
+
+        for tranche in plan:
+            f_t = ctk.CTkFrame(self.frame_apercu,
+                               fg_color="transparent")
+            f_t.pack(fill="x", padx=12, pady=2)
+            coul = (COULEURS["accent_orange"]
+                    if tranche["annee"] < datetime.date.today().year
+                    else COULEURS["accent_vert"])
+            ctk.CTkLabel(
+                f_t,
+                text=f"  Reliquat {tranche['annee']} : "
+                     f"−{tranche['jours_a_deduire']:.0f} j",
+                font=POLICES["corps"],
+                text_color=coul).pack(anchor="w")
+
+        ctk.CTkFrame(self.frame_apercu, height=4,
+                     fg_color="transparent").pack()
+
     def _type_interne(self, libelle: str) -> str:
-        correspondance = {
+        return {
             "Congé Annuel":                    "CONGE_ANNUEL",
             "Dis-Intox (protection radiation)":"DIS_INTOX",
             "Semestre (protection radiation)": "SEMESTRE",
-        }
-        return correspondance.get(libelle, "CONGE_ANNUEL")
+        }.get(libelle, "CONGE_ANNUEL")
 
     def _valider(self):
         self._cacher_erreur()
-
         d1 = self._parse_date(self.e_debut.get())
         d2 = self._parse_date(self.e_fin.get())
 
         if not d1:
             self._afficher_erreur(
-                "Date de début invalide. Format attendu : JJ/MM/AAAA"); return
+                "Date de début invalide (JJ/MM/AAAA)."); return
         if not d2:
             self._afficher_erreur(
-                "Date de fin invalide. Format attendu : JJ/MM/AAAA"); return
+                "Date de fin invalide (JJ/MM/AAAA)."); return
         if d2 < d1:
             self._afficher_erreur(
                 "La date de fin doit être >= à la date de début."); return
 
         nb_jours = (d2 - d1).days + 1
-
         data = {
             "employe_id": self._emp["id"],
             "conge_id":   self._solde["id"],
@@ -238,14 +291,13 @@ class DialogueConge(DialogueBase):
             "nb_jours":   nb_jours,
             "observation":self.e_obs.get().strip(),
         }
-
         try:
-            mouvement_id = conges_dao.enregistrer_mouvement(data)
+            mouvements = conges_dao.enregistrer_mouvement(data)
             if self._callback:
-                self._callback({"mouvement_id": mouvement_id,
+                self._callback({"mouvements": mouvements,
                                 "nb_jours": nb_jours})
             self.destroy()
         except ValueError as ex:
             self._afficher_erreur(str(ex))
         except Exception as ex:
-            self._afficher_erreur(f"Erreur inattendue : {str(ex)}")
+            self._afficher_erreur(f"Erreur : {str(ex)}")
