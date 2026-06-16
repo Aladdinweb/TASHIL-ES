@@ -1,7 +1,4 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-# GitHub Actions — Build automatique Windows .exe
-# Déclenché sur chaque push sur main
-
 name: Build Windows EXE
 
 on:
@@ -9,60 +6,57 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 30
 
     steps:
-      # ── Checkout du code ──────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Python 3.11 ───────────────────────────────────────────
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      # ── Cache pip ─────────────────────────────────────────────
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      # ── Installer dépendances ─────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install customtkinter openpyxl pillow pyinstaller darkdetect packaging
 
-      # ── Générer l'icône ───────────────────────────────────────
       - name: Generate icon
         run: python app/assets/create_icon.py
         continue-on-error: true
 
-      # ── Compiler avec PyInstaller ─────────────────────────────
+      - name: Verify spec file exists
+        run: |
+          if (Test-Path "epsp_conge.spec") {
+            Write-Host "spec file found OK"
+          } else {
+            Write-Error "epsp_conge.spec NOT FOUND"
+            Get-ChildItem -Name
+            exit 1
+          }
+
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller epsp_conge.spec --clean --noconfirm --log-level WARN
 
-      # ── Vérifier l'artefact ───────────────────────────────────
       - name: Verify build output
         run: |
           if (Test-Path "dist\EPSP_CongeManager.exe") {
             $size = (Get-Item "dist\EPSP_CongeManager.exe").Length / 1MB
-            Write-Host "EXE size: $([math]::Round($size, 1)) MB"
+            Write-Host "SUCCESS — EXE size: $([math]::Round($size,1)) MB"
           } else {
-            Write-Error "EXE not found!"
+            Write-Error "EXE not found in dist/"
             exit 1
           }
 
-      # ── Uploader l'artefact ───────────────────────────────────
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,9 +64,7 @@ jobs:
           path: dist/EPSP_CongeManager.exe
           retention-days: 30
 
-      # ── Créer une Release GitHub ──────────────────────────────
       - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
@@ -81,22 +73,11 @@ jobs:
             ## EPSP ES-SENIA — Gestionnaire de Congés Annuels
             **COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN**
 
-            ### Téléchargement
-            👉 Téléchargez `EPSP_CongeManager.exe` ci-dessous.
-
-            ### Installation
+            ### Installation Windows
             1. Télécharger `EPSP_CongeManager.exe`
-            2. Placer dans un dossier dédié (ex: `C:\EPSP\`)
+            2. Placer dans `C:\EPSP\`
             3. Double-cliquer pour lancer
-            4. La base de données se crée automatiquement
-
-            ### Fonctionnalités v1.0.${{ github.run_number }}
-            - Gestion employés (26 grades officiels EPSP)
-            - Reliquats congé avec priorité anciens exercices
-            - Support MANIP-RADIO (Dis-Intox / Semestre)
-            - Rollover automatique 1er Mai
-            - 7 Polycliniques préconfigurées
-            - Génération Bordereau d'envoi Excel (template officiel)
+            4. La base de données se crée automatiquement au premier lancement
           draft: false
           prerelease: false
           files: dist/EPSP_CongeManager.exe

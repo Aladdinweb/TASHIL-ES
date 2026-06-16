@@ -1,11 +1,15 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-# Permissions globales pour GitHub Actions
-
 name: Permissions check
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-  actions: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check permissions
+        run: echo "Permissions OK"
