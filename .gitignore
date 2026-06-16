@@ -1,9 +1,19 @@
+# Python
 __pycache__/
 *.py[cod]
-dist/
+*.pyo
+*.egg-info/
+
+# PyInstaller — garder le .spec mais ignorer les dossiers de build
 build/
-*.spec
+dist/
+
+# Base de données locale
 data/*.db
+
+# Exécutable compilé
 *.exe
+
+# OS
 .DS_Store
 Thumbs.db
