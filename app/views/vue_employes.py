@@ -330,6 +330,7 @@ class VueEmployes(ctk.CTkFrame):
                 self.frame_liste, fg_color=bg,
                 corner_radius=0, cursor="hand2")
             frame_l.pack(fill="x", pady=1)
+            frame_l._emp_id = eid
 
             # Nom polyclinique (abrégé)
             poly_nom = emp.get("poly_nom", "") or ""
@@ -368,11 +369,15 @@ class VueEmployes(ctk.CTkFrame):
                 f.configure(fg_color=b)
             def on_click(e, i=eid, d=edat):
                 self._selectionner(i, d)
+            def on_dbl(e, i=eid):
+                from app.views.fiche_employe import FicheEmploye
+                FicheEmploye(self, i)
 
             for w in [frame_l] + frame_l.winfo_children():
                 w.bind("<Enter>", on_enter)
                 w.bind("<Leave>", on_leave)
                 w.bind("<Button-1>", on_click)
+                w.bind("<Double-Button-1>", on_dbl)
 
     def _selectionner(self, emp_id, emp):
         self._emp_selectionne_id = emp_id
@@ -457,3 +462,26 @@ class VueEmployes(ctk.CTkFrame):
         for w in self.winfo_children():
             w.destroy()
         self._construire()
+
+
+# ── Patch : ouvrir la fiche au double-clic ────────────────────────
+def _patch_fiche(vue: VueEmployes):
+    """Ajoute l'ouverture de la Fiche au double-clic sur une ligne."""
+    _original_afficher = vue._afficher_employes
+
+    def _afficher_avec_fiche(employes):
+        _original_afficher(employes)
+        # Rebinder double-clic sur chaque ligne déjà créée
+        for frame_l in vue.frame_liste.winfo_children():
+            eid = getattr(frame_l, "_emp_id", None)
+            if eid:
+                frame_l.bind(
+                    "<Double-Button-1>",
+                    lambda e, i=eid: _ouvrir_fiche(vue, i))
+
+    vue._afficher_employes = _afficher_avec_fiche
+
+
+def _ouvrir_fiche(vue, emp_id: int):
+    from app.views.fiche_employe import FicheEmploye
+    FicheEmploye(vue, emp_id)

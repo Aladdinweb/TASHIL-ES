@@ -467,6 +467,8 @@ class VueBordereaux(ctk.CTkFrame):
         }
 
         try:
+            from app.utils.database import faire_backup
+            faire_backup('bordereau')
             chemin = generer_bordereau(data_bord)
             data_bord["chemin_fichier"] = chemin
             bordereaux_dao.creer_bordereau(data_bord)

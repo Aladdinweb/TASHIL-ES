@@ -1,10 +1,6 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""
-Migration base de données — Ajout polycliniques + champ rollover
-EPSP ES-SENIA
-"""
+"""Migration base de données — EPSP ES-SENIA"""
 from app.utils.database import get_connection, initialize_database
-
 
 POLYCLINIQUES = [
     "POLYCLINIQUE ES SENIA",
@@ -22,67 +18,57 @@ def migrer():
     conn = get_connection()
     c = conn.cursor()
 
-    # ── Table polycliniques ───────────────────────────────────────
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS polycliniques (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom        TEXT    NOT NULL UNIQUE,
-            actif      INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT    DEFAULT (datetime('now','localtime'))
-        )
-    """)
+    # Colonnes manquantes sur employes
+    cols = [r[1] for r in
+            c.execute("PRAGMA table_info(employes)").fetchall()]
 
-    # ── Colonne polyclinique_id sur employes (si absente) ─────────
-    colonnes = [r[1] for r in
-                c.execute("PRAGMA table_info(employes)").fetchall()]
-    if "polyclinique_id" not in colonnes:
-        c.execute("""
-            ALTER TABLE employes
-            ADD COLUMN polyclinique_id INTEGER
-                REFERENCES polycliniques(id) ON DELETE SET NULL
-        """)
-        print("[+] Colonne polyclinique_id ajoutée à employes.")
+    if "polyclinique_id" not in cols:
+        c.execute("ALTER TABLE employes "
+                  "ADD COLUMN polyclinique_id INTEGER "
+                  "REFERENCES polycliniques(id) ON DELETE SET NULL")
+        print("[+] polyclinique_id ajoutée")
 
-    # ── Colonne est_reporte sur conges_annuels (rollover flag) ────
-    colonnes_ca = [r[1] for r in
-                   c.execute("PRAGMA table_info(conges_annuels)").fetchall()]
-    if "est_reporte" not in colonnes_ca:
-        c.execute("""
-            ALTER TABLE conges_annuels
-            ADD COLUMN est_reporte INTEGER NOT NULL DEFAULT 0
-        """)
-        print("[+] Colonne est_reporte ajoutée à conges_annuels.")
+    if "annee_entree" not in cols:
+        c.execute("ALTER TABLE employes "
+                  "ADD COLUMN annee_entree INTEGER")
+        print("[+] annee_entree ajoutée")
 
-    if "date_cloture" not in colonnes_ca:
-        c.execute("""
-            ALTER TABLE conges_annuels
-            ADD COLUMN date_cloture TEXT
-        """)
-        print("[+] Colonne date_cloture ajoutée à conges_annuels.")
+    # Colonnes manquantes sur conges_annuels
+    cols_ca = [r[1] for r in
+               c.execute("PRAGMA table_info(conges_annuels)").fetchall()]
+    if "est_reporte" not in cols_ca:
+        c.execute("ALTER TABLE conges_annuels "
+                  "ADD COLUMN est_reporte INTEGER NOT NULL DEFAULT 0")
+        print("[+] est_reporte ajoutée")
+    if "date_cloture" not in cols_ca:
+        c.execute("ALTER TABLE conges_annuels "
+                  "ADD COLUMN date_cloture TEXT")
+        print("[+] date_cloture ajoutée")
 
-    # ── Table journal_rollover ─────────────────────────────────────
+    # Table journal_rollover
     c.execute("""
         CREATE TABLE IF NOT EXISTS journal_rollover (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            annee        INTEGER NOT NULL,
-            date_exec    TEXT    NOT NULL,
-            nb_employes  INTEGER NOT NULL DEFAULT 0,
-            details      TEXT,
-            created_at   TEXT    DEFAULT (datetime('now','localtime'))
-        )
-    """)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            annee INTEGER NOT NULL,
+            date_exec TEXT NOT NULL,
+            nb_employes INTEGER NOT NULL DEFAULT 0,
+            details TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )""")
 
     conn.commit()
 
-    # ── Insérer les polycliniques ─────────────────────────────────
+    # Polycliniques
     print("\n--- Polycliniques ---")
     for nom in POLYCLINIQUES:
         try:
-            c.execute("INSERT INTO polycliniques (nom) VALUES (?)", (nom,))
+            c.execute(
+                "INSERT INTO polycliniques (nom) VALUES (?)",
+                (nom,))
             conn.commit()
             print(f"  [+] {nom}")
         except Exception:
-            print(f"  [=] {nom} déjà présente.")
+            print(f"  [=] {nom} existante")
 
     conn.close()
     print("\n[OK] Migration terminée.")
