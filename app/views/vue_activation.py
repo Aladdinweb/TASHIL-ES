@@ -1,13 +1,11 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
 Écran d'activation première utilisation — EPSP ES-SENIA
-Thème : Algérie / Santé publique
 """
 import customtkinter as ctk
 from app.utils.theme import COULEURS, POLICES, DIMENSIONS
 from app.utils.database import (
-    get_connection, set_config, chiffrer_code)
-
+    set_config, chiffrer_code)
 
 POLYCLINIQUES_CODES = [
     ("POLY_01", "POLYCLINIQUE ES SENIA"),
@@ -22,11 +20,6 @@ POLYCLINIQUES_CODES = [
 
 
 class VueActivation(ctk.CTkFrame):
-    """
-    Plein-écran affiché au premier lancement.
-    Callback `on_activation_complete` appelé après validation.
-    """
-
     def __init__(self, parent,
                  on_activation_complete=None,
                  **kwargs):
@@ -38,26 +31,23 @@ class VueActivation(ctk.CTkFrame):
         self._construire()
 
     def _construire(self):
-        # ── Fond dégradé simulé ───────────────────────────
-        self.configure(
-            fg_color=COULEURS["bg_principal"])
-
-        # Contenu centré
+        # Centrage du contenu
         frame_centre = ctk.CTkFrame(
             self, fg_color="transparent")
-        frame_centre.place(relx=0.5, rely=0.5,
-                           anchor="center")
+        frame_centre.place(
+            relx=0.5, rely=0.5, anchor="center")
 
-        # ── Drapeau + En-tête officiel ────────────────────
+        # Drapeau
         ctk.CTkLabel(
             frame_centre, text="🇩🇿",
-            font=("Segoe UI", 64)
-        ).pack(pady=(0, 8))
+            font=("Segoe UI", 56)
+        ).pack(pady=(0, 6))
 
+        # Header officiel arabe
         ctk.CTkLabel(
             frame_centre,
             text="الجمهورية الجزائرية الديمقراطية الشعبية",
-            font=("Segoe UI", 15, "bold"),
+            font=("Segoe UI", 14, "bold"),
             text_color=COULEURS["texte_principal"],
             justify="center"
         ).pack()
@@ -65,45 +55,46 @@ class VueActivation(ctk.CTkFrame):
         ctk.CTkLabel(
             frame_centre,
             text="وزارة الصحة",
-            font=("Segoe UI", 13),
+            font=("Segoe UI", 12),
             text_color=COULEURS["texte_secondaire"],
             justify="center"
-        ).pack(pady=(2, 16))
+        ).pack(pady=(2, 14))
 
-        # ── Emblème médical ───────────────────────────────
-        frame_embleme = ctk.CTkFrame(
+        # Emblème médical
+        frame_emb = ctk.CTkFrame(
             frame_centre,
             fg_color=COULEURS["bg_carte"],
-            corner_radius=16,
+            corner_radius=14,
             border_width=2,
             border_color=COULEURS["accent_bleu"],
-            width=380, height=90)
-        frame_embleme.pack(pady=(0, 20))
-        frame_embleme.pack_propagate(False)
+            width=380, height=86)
+        frame_emb.pack(pady=(0, 18))
+        frame_emb.pack_propagate(False)
 
         ctk.CTkLabel(
-            frame_embleme,
+            frame_emb,
             text="⚕  EPSP ES-SENIA",
-            font=("Segoe UI", 22, "bold"),
+            font=("Segoe UI", 20, "bold"),
             text_color=COULEURS["accent_bleu"]
-        ).place(relx=0.5, rely=0.38,
+        ).place(relx=0.5, rely=0.36,
                 anchor="center")
 
         ctk.CTkLabel(
-            frame_embleme,
-            text="Gestionnaire de Reliquats de Congé Annuel",
+            frame_emb,
+            text="Gestionnaire de Reliquats "
+                 "de Congé Annuel",
             font=("Segoe UI", 10),
             text_color=COULEURS["texte_secondaire"]
         ).place(relx=0.5, rely=0.72,
                 anchor="center")
 
-        # ── Titre activation ──────────────────────────────
+        # Titre activation
         ctk.CTkLabel(
             frame_centre,
             text="⚙  Première configuration",
             font=POLICES["sous_titre"],
             text_color=COULEURS["texte_principal"]
-        ).pack(pady=(0, 6))
+        ).pack(pady=(0, 4))
 
         ctk.CTkLabel(
             frame_centre,
@@ -111,11 +102,12 @@ class VueActivation(ctk.CTkFrame):
                  "pour activer ce poste.",
             font=POLICES["corps"],
             text_color=COULEURS["texte_secondaire"]
-        ).pack(pady=(0, 16))
+        ).pack(pady=(0, 14))
 
-        # ── Sélecteur polyclinique ────────────────────────
+        # Dropdown polycliniques
         noms = [f"{code} — {nom}"
-                for code, nom in POLYCLINIQUES_CODES]
+                for code, nom
+                in POLYCLINIQUES_CODES]
         self.m_poly = ctk.CTkOptionMenu(
             frame_centre,
             values=noms,
@@ -129,72 +121,87 @@ class VueActivation(ctk.CTkFrame):
             font=POLICES["corps"],
             dropdown_font=POLICES["corps"],
             corner_radius=DIMENSIONS["rayon_bouton"],
-            width=400, height=42)
-        self.m_poly.pack(pady=(0, 6))
+            width=400, height=42,
+            command=self._on_change)
+        self.m_poly.pack(pady=(0, 4))
         self.m_poly.set(noms[0])
 
-        # ── Label code sécurisé ───────────────────────────
+        # Affichage code sécurisé
         self.lbl_code = ctk.CTkLabel(
             frame_centre, text="",
             font=("Courier", 9),
             text_color=COULEURS["texte_discret"])
-        self.lbl_code.pack(pady=(0, 16))
-        self.m_poly.configure(
-            command=self._on_poly_change)
-        self._on_poly_change(noms[0])
+        self.lbl_code.pack(pady=(0, 14))
+        self._on_change(noms[0])
 
-        # ── Bouton activer ────────────────────────────────
-        ctk.CTkButton(
+        # Bouton activer
+        self.btn_activer = ctk.CTkButton(
             frame_centre,
             text="🔓  Activer ce poste",
             fg_color=COULEURS["accent_bleu"],
             hover_color=COULEURS["accent_bleu_clair"],
             text_color="#FFFFFF",
-            font=("Segoe UI", 14, "bold"),
-            width=280, height=46,
+            font=("Segoe UI", 13, "bold"),
+            width=280, height=44,
             corner_radius=10,
-            command=self._activer
-        ).pack(pady=(0, 10))
+            command=self._activer)
+        self.btn_activer.pack(pady=(0, 10))
 
-        # ── Footer ────────────────────────────────────────
-        ctk.CTkLabel(
-            frame_centre,
-            text="COPYRIGHT ILINE TECH 2026 "
-                 "BY FERAK ALADDIN",
-            font=("Segoe UI", 8),
-            text_color=COULEURS["texte_discret"]
-        ).pack(pady=(16, 0))
-
+        # Erreur
         self.lbl_err = ctk.CTkLabel(
             frame_centre, text="",
             font=POLICES["corps"],
             text_color=COULEURS["accent_rouge"])
         self.lbl_err.pack()
 
-    def _on_poly_change(self, val: str):
+        # Footer
+        ctk.CTkLabel(
+            frame_centre,
+            text="COPYRIGHT ILINE TECH 2026 "
+                 "BY FERAK ALADDIN",
+            font=("Segoe UI", 8),
+            text_color=COULEURS["texte_discret"]
+        ).pack(pady=(14, 0))
+
+    def _on_change(self, val: str):
         code = val.split("—")[0].strip()
         h    = chiffrer_code(code)
         self.lbl_code.configure(
             text=f"Code sécurisé : {h[:16]}…")
 
     def _activer(self):
+        self.lbl_err.configure(text="")
         sel  = self.m_poly.get()
         code = sel.split("—")[0].strip()
-        nom  = sel.split("—")[1].strip() \
-               if "—" in sel else sel
+        nom  = (sel.split("—")[1].strip()
+                if "—" in sel else sel)
+
+        # Désactiver le bouton pendant le traitement
+        self.btn_activer.configure(
+            state="disabled",
+            text="⏳  Activation…")
 
         try:
             set_config("activation_done", "1")
-            set_config("poly_code",
-                       chiffrer_code(code))
+            set_config(
+                "poly_code", chiffrer_code(code))
             set_config("poly_code_raw", code)
             set_config("poly_nom", nom)
             set_config(
                 "expediteur_defaut",
                 f"SERVICE {nom}")
 
-            if self._callback:
-                self._callback(code, nom)
+            # Appeler le callback APRÈS
+            # un court délai pour laisser
+            # tkinter terminer l'update
+            self.after(
+                200,
+                lambda: self._callback(code, nom)
+                if self._callback else None)
+
         except Exception as ex:
+            self.btn_activer.configure(
+                state="normal",
+                text="🔓  Activer ce poste")
             self.lbl_err.configure(
                 text=f"Erreur : {str(ex)}")
