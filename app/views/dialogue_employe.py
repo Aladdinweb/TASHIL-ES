@@ -179,6 +179,7 @@ class DialogueEmploye(DialogueBase):
                 corner_radius=DIMENSIONS["rayon_bouton"])
             e.pack(fill="x", pady=(4, 0))
             return e
+
         def menu_opt(label, valeurs, obligatoire=False,
                      commande=None):
             f = ctk.CTkFrame(cors, fg_color="transparent")
@@ -202,7 +203,7 @@ class DialogueEmploye(DialogueBase):
                 dropdown_font=POLICES["corps"],
                 corner_radius=DIMENSIONS["rayon_bouton"],
                 height=38,
-                commande=commande)
+                command=commande)
             m.pack(fill="x", pady=(4, 0))
             return m
 
