@@ -1,17 +1,17 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""
-DAO — Employés (avec support polyclinique_id)
-"""
+"""DAO Employés — avec groupe opérationnel"""
 from app.utils.database import get_connection
 
 
-def lister_employes(dept_id=None, recherche="") -> list:
+def lister_employes(dept_id=None,
+                    recherche="") -> list:
     conn = get_connection()
     sql = """
         SELECT e.id, e.matricule, e.nom, e.prenom,
-               e.grade, e.poste,
-               d.id as dept_id, d.code as dept_code,
-               d.nom as dept_nom,
+               e.grade, e.poste, e.annee_entree,
+               d.id  as dept_id,
+               d.code as dept_code,
+               d.nom  as dept_nom,
                e.est_manip_radio, e.actif,
                e.polyclinique_id,
                p.nom as poly_nom
@@ -23,11 +23,13 @@ def lister_employes(dept_id=None, recherche="") -> list:
     """
     params = []
     if dept_id:
-        sql += " AND e.departement_id = ?";params.append(dept_id)
+        sql += " AND e.departement_id = ?"
+        params.append(dept_id)
     if recherche.strip():
         r = f"%{recherche.strip()}%"
-        sql += (" AND (e.nom LIKE ? OR e.prenom LIKE ?"
-                " OR e.matricule LIKE ?)")
+        sql += (" AND (e.nom LIKE ? "
+                "OR e.prenom LIKE ? "
+                "OR e.matricule LIKE ?)")
         params += [r, r, r]
     sql += " ORDER BY d.code, e.nom, e.prenom"
     rows = conn.execute(sql, params).fetchall()
@@ -35,12 +37,14 @@ def lister_employes(dept_id=None, recherche="") -> list:
     return [dict(r) for r in rows]
 
 
-def obtenir_employe(emp_id: int) -> dict | None:
+def obtenir_employe(emp_id: int):
     conn = get_connection()
     row = conn.execute("""
         SELECT e.id, e.matricule, e.nom, e.prenom,
-               e.grade, e.poste, e.departement_id,
-               d.code as dept_code, d.nom as dept_nom,
+               e.grade, e.poste, e.annee_entree,
+               e.departement_id,
+               d.code as dept_code,
+               d.nom  as dept_nom,
                e.est_manip_radio, e.actif,
                e.polyclinique_id,
                p.nom as poly_nom
@@ -57,14 +61,15 @@ def obtenir_employe(emp_id: int) -> dict | None:
 def lister_departements() -> list:
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, code, nom FROM departements ORDER BY nom"
+        "SELECT id, code, nom "
+        "FROM departements ORDER BY nom"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
 def matricule_existe(matricule: str,
-                     exclure_id: int = None) -> bool:
+                     exclure_id=None) -> bool:
     conn = get_connection()
     if exclure_id:
         row = conn.execute(
@@ -73,7 +78,8 @@ def matricule_existe(matricule: str,
             (matricule, exclure_id)).fetchone()
     else:
         row = conn.execute(
-            "SELECT id FROM employes WHERE matricule=?",
+            "SELECT id FROM employes "
+            "WHERE matricule=?",
             (matricule,)).fetchone()
     conn.close()
     return row is not None
@@ -91,18 +97,20 @@ def modifier_employe(emp_id: int, data: dict) -> bool:
             departement_id  = ?,
             polyclinique_id = ?,
             est_manip_radio = ?,
+            annee_entree    = ?,
             actif           = ?,
-            updated_at      = datetime('now','localtime')
+            updated_at = datetime('now','localtime')
         WHERE id = ?
     """, (
         data["matricule"].strip().upper(),
         data["nom"].strip().upper(),
         data["prenom"].strip(),
         data["grade"].strip(),
-        data["poste"].strip(),
+        data.get("poste", "").strip(),
         data["departement_id"],
         data.get("polyclinique_id"),
-        1 if data.get("est_manip_radio") else 0,
+        data.get("est_manip_radio", 0),
+        data.get("annee_entree"),
         1 if data.get("actif", True) else 0,
         emp_id,
     ))
@@ -112,30 +120,31 @@ def modifier_employe(emp_id: int, data: dict) -> bool:
 
 
 def creer_employe(data: dict) -> int:
-    """Fallback simple (sans soldes — utiliser DialogueEmploye)."""
-    import datetime
+    import datetime as dt
     conn = get_connection()
     cur = conn.execute("""
         INSERT INTO employes
             (matricule, nom, prenom, grade, poste,
              departement_id, polyclinique_id,
-             est_manip_radio, actif)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+             est_manip_radio, annee_entree, actif)
+        VALUES (?,?,?,?,?,?,?,?,?,1)
     """, (
         data["matricule"].strip().upper(),
         data["nom"].strip().upper(),
         data["prenom"].strip(),
         data["grade"].strip(),
-        data["poste"].strip(),
+        data.get("poste", "").strip(),
         data["departement_id"],
         data.get("polyclinique_id"),
-        1 if data.get("est_manip_radio") else 0,
+        data.get("est_manip_radio", 0),
+        data.get("annee_entree"),
     ))
     emp_id = cur.lastrowid
-    annee  = datetime.date.today().year
+    annee  = dt.date.today().year
     conn.execute("""
         INSERT OR IGNORE INTO conges_annuels
-            (employe_id, annee, jours_initiaux, jours_utilises)
+            (employe_id, annee,
+             jours_initiaux, jours_utilises)
         VALUES (?, ?, 30, 0)
     """, (emp_id, annee))
     conn.commit()
@@ -147,8 +156,8 @@ def supprimer_employe(emp_id: int) -> bool:
     conn = get_connection()
     conn.execute(
         "UPDATE employes SET actif=0, "
-        "updated_at=datetime('now','localtime') WHERE id=?",
-        (emp_id,))
+        "updated_at=datetime('now','localtime') "
+        "WHERE id=?", (emp_id,))
     conn.commit()
     conn.close()
     return True
@@ -158,8 +167,8 @@ def restaurer_employe(emp_id: int) -> bool:
     conn = get_connection()
     conn.execute(
         "UPDATE employes SET actif=1, "
-        "updated_at=datetime('now','localtime') WHERE id=?",
-        (emp_id,))
+        "updated_at=datetime('now','localtime') "
+        "WHERE id=?", (emp_id,))
     conn.commit()
     conn.close()
     return True
