@@ -1,21 +1,24 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
-Vue : Gestion des Employés — EPSP ES-SENIA
-CRUD complet avec recherche, filtre, polyclinique, et état vide clair.
+Vue Employés — sans bouton doublon, validation assouplie.
+Champs obligatoires : Nom, Prénom, Grade, Polyclinique.
 """
 import customtkinter as ctk
 from app.utils.theme import COULEURS, POLICES, DIMENSIONS
 from app.utils import employes_dao
 from app.utils.polycliniques_dao import lister_polycliniques
 from app.views.dialogue_employe import DialogueEmploye
-from app.views.dialogue_confirmation import DialogueConfirmation
+from app.views.dialogue_confirmation import (
+    DialogueConfirmation)
 
 
 class VueEmployes(ctk.CTkFrame):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, fg_color=COULEURS["bg_principal"],
-                         corner_radius=0, **kwargs)
-        self._emp_selectionne_id = None
+        super().__init__(
+            parent,
+            fg_color=COULEURS["bg_principal"],
+            corner_radius=0, **kwargs)
+        self._emp_sel_id = None
         self._depts = []
         self._polys = []
         self._construire()
@@ -25,95 +28,73 @@ class VueEmployes(ctk.CTkFrame):
         self._depts = employes_dao.lister_departements()
         self._polys = lister_polycliniques()
 
-        # ── Titre + bouton ajout ──────────────────────────────
-        frame_titre = ctk.CTkFrame(self, fg_color="transparent")
-        frame_titre.pack(fill="x", padx=pad, pady=(pad, 8))
-
-        ctk.CTkLabel(frame_titre, text="Gestion des Employés",
-                     font=POLICES["titre_page"],
-                     text_color=COULEURS["texte_principal"]).pack(side="left")
-
-        ctk.CTkButton(
+        # Titre SANS bouton doublon à droite
+        frame_titre = ctk.CTkFrame(
+            self, fg_color="transparent")
+        frame_titre.pack(
+            fill="x", padx=pad, pady=(pad, 8))
+        ctk.CTkLabel(
             frame_titre,
-            text="＋  Nouvel employé",
-            fg_color=COULEURS["accent_vert"],
-            hover_color="#059669",
-            text_color="#FFFFFF",
-            font=POLICES["bouton"],
-            height=40,
-            width=180,
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            command=self._ouvrir_creation
-        ).pack(side="right")
+            text="Gestion des Employés",
+            font=POLICES["titre_page"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(side="left")
+        # PAS de bouton "+ Nouvel employé" ici
 
-        ctk.CTkFrame(self, height=1,
-                     fg_color=COULEURS["bordure"]).pack(
-                         fill="x", padx=pad, pady=(0, 12))
+        ctk.CTkFrame(
+            self, height=1,
+            fg_color=COULEURS["bordure"]
+        ).pack(fill="x", padx=pad, pady=(0, 10))
 
-        # ── Filtres ───────────────────────────────────────────
-        frame_f = ctk.CTkFrame(self, fg_color="transparent")
-        frame_f.pack(fill="x", padx=pad, pady=(0, 10))
+        # Filtres
+        frame_f = ctk.CTkFrame(
+            self, fg_color="transparent")
+        frame_f.pack(
+            fill="x", padx=pad, pady=(0, 8))
 
         self.e_recherche = ctk.CTkEntry(
             frame_f,
-            placeholder_text="🔍  Rechercher par nom ou matricule…",
+            placeholder_text=(
+                "🔍  Rechercher nom / matricule…"),
             fg_color=COULEURS["bg_champ"],
             border_color=COULEURS["bordure"],
             text_color=COULEURS["texte_principal"],
             placeholder_text_color=COULEURS["texte_discret"],
-            font=POLICES["corps"], height=36,
+            font=POLICES["corps"], height=34,
             corner_radius=DIMENSIONS["rayon_bouton"],
             width=280)
-        self.e_recherche.pack(side="left", padx=(0, 8))
-        self.e_recherche.bind("<KeyRelease>",
-                              lambda e: self._filtrer())
+        self.e_recherche.pack(
+            side="left", padx=(0, 8))
+        self.e_recherche.bind(
+            "<KeyRelease>",
+            lambda e: self._filtrer())
 
-        noms_depts = (["Tous les départements"] +
-                      [f"{d['code']} — {d['nom']}"
-                       for d in self._depts])
-        self.m_dept = ctk.CTkOptionMenu(
-            frame_f, values=noms_depts,
-            fg_color=COULEURS["bg_champ"],
-            button_color=COULEURS["accent_bleu"],
-            button_hover_color=COULEURS["accent_bleu_clair"],
-            dropdown_fg_color=COULEURS["bg_carte"],
-            dropdown_hover_color=COULEURS["bg_hover"],
-            text_color=COULEURS["texte_principal"],
-            dropdown_text_color=COULEURS["texte_principal"],
-            font=POLICES["corps"],
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            width=210, height=36,
-            command=lambda v: self._filtrer())
-        self.m_dept.pack(side="left", padx=(0, 8))
-
-        noms_polys = (["Toutes les polycliniques"] +
-                      [p["nom"] for p in self._polys])
-        self.m_poly = ctk.CTkOptionMenu(
-            frame_f, values=noms_polys,
-            fg_color=COULEURS["bg_champ"],
-            button_color=COULEURS["accent_bleu"],
-            button_hover_color=COULEURS["accent_bleu_clair"],
-            dropdown_fg_color=COULEURS["bg_carte"],
-            dropdown_hover_color=COULEURS["bg_hover"],
-            text_color=COULEURS["texte_principal"],
-            dropdown_text_color=COULEURS["texte_principal"],
-            font=POLICES["corps"],
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            width=240, height=36,
-            command=lambda v: self._filtrer())
-        self.m_poly.pack(side="left", padx=(0, 8))
-
-        self.lbl_compteur = ctk.CTkLabel(
+        self.lbl_cpt = ctk.CTkLabel(
             frame_f, text="",
             font=POLICES["petit"],
             text_color=COULEURS["texte_secondaire"])
-        self.lbl_compteur.pack(side="left")
+        self.lbl_cpt.pack(side="left")
 
-        # ── Corps : liste + détail ────────────────────────────
-        frame_corps = ctk.CTkFrame(self, fg_color="transparent")
-        frame_corps.pack(fill="both", expand=True,
-                         padx=pad, pady=(0, 0))
-        frame_corps.grid_columnconfigure(0, weight=3)
+        # Bouton ajout (position naturelle dans filtres)
+        ctk.CTkButton(
+            frame_f,
+            text="＋  Ajouter",
+            fg_color=COULEURS["accent_vert"],
+            hover_color="#059669",
+            text_color="#FFFFFF",
+            font=POLICES["bouton"],
+            height=34, width=120,
+            corner_radius=DIMENSIONS["rayon_bouton"],
+            command=self._ouvrir_creation
+        ).pack(side="right")
+
+        # Layout : liste large, détail étroit
+        frame_corps = ctk.CTkFrame(
+            self, fg_color="transparent")
+        frame_corps.pack(
+            fill="both", expand=True,
+            padx=pad, pady=(0, 0))
+        frame_corps.grid_columnconfigure(0, weight=4)
         frame_corps.grid_columnconfigure(1, weight=1)
         frame_corps.grid_rowconfigure(0, weight=1)
 
@@ -121,367 +102,327 @@ class VueEmployes(ctk.CTkFrame):
         self._construire_detail(frame_corps)
 
         # Pied
-        frame_pied = ctk.CTkFrame(
-            self, fg_color=COULEURS["bg_sidebar"],
-            corner_radius=0, height=44)
-        frame_pied.pack(fill="x", side="bottom")
-        frame_pied.pack_propagate(False)
+        fp = ctk.CTkFrame(
+            self,
+            fg_color=COULEURS["bg_sidebar"],
+            corner_radius=0, height=40)
+        fp.pack(fill="x", side="bottom")
+        fp.pack_propagate(False)
         self.lbl_pied = ctk.CTkLabel(
-            frame_pied, text="",
+            fp, text="",
             font=POLICES["petit"],
             text_color=COULEURS["texte_secondaire"])
-        self.lbl_pied.pack(side="left", padx=pad)
+        self.lbl_pied.pack(
+            side="left", padx=pad)
 
         self._filtrer()
 
     def _construire_liste(self, parent):
         self._cols = [
-            ("Matricule",    100),
-            ("Nom & Prénom", 180),
-            ("Grade",        155),
-            ("Dép.",          60),
-            ("Polyclinique", 160),
-            ("Radio",         50),
+            ("Matricule",    95),
+            ("Nom & Prénom", 185),
+            ("Grade",        165),
+            ("Service",      130),
+            ("Polyclinique", 140),
             ("Statut",        65),
         ]
-        frame_head = ctk.CTkFrame(
-            parent, fg_color=COULEURS["bg_sidebar"],
-            corner_radius=8)
-        frame_head.grid(row=0, column=0, sticky="new",
-                        padx=(0, 8), pady=(0, 2))
+        fh = ctk.CTkFrame(
+            parent,
+            fg_color=COULEURS["bg_sidebar"],
+            corner_radius=6)
+        fh.grid(row=0, column=0,
+                sticky="new", padx=(0, 8),
+                pady=(0, 2))
         for nom, larg in self._cols:
             ctk.CTkLabel(
-                frame_head, text=nom,
+                fh, text=nom,
                 font=POLICES["tableau_head"],
                 text_color=COULEURS["texte_secondaire"],
                 width=larg, anchor="w"
-            ).pack(side="left", padx=6, pady=8)
+            ).pack(side="left", padx=6, pady=7)
 
         self.frame_liste = ctk.CTkScrollableFrame(
-            parent, fg_color=COULEURS["bg_carte"],
+            parent,
+            fg_color=COULEURS["bg_carte"],
             corner_radius=8,
             scrollbar_button_color=COULEURS["accent_bleu"])
         self.frame_liste.grid(
             row=0, column=0, sticky="nsew",
             padx=(0, 8),
-            pady=(40, DIMENSIONS["padding_page"]))
+            pady=(38, DIMENSIONS["padding_page"]))
 
     def _construire_detail(self, parent):
         self.frame_detail = ctk.CTkFrame(
-            parent, fg_color=COULEURS["bg_carte"],
+            parent,
+            fg_color=COULEURS["bg_carte"],
             corner_radius=8)
         self.frame_detail.grid(
             row=0, column=1, sticky="nsew",
             pady=(0, DIMENSIONS["padding_page"]))
 
-        ctk.CTkLabel(self.frame_detail,
-                     text="Actions",
-                     font=POLICES["sous_titre"],
-                     text_color=COULEURS["texte_principal"]).pack(
-                         padx=14, pady=(14, 4), anchor="w")
-        ctk.CTkFrame(self.frame_detail, height=1,
-                     fg_color=COULEURS["bordure"]).pack(
-                         fill="x", padx=14, pady=(0, 10))
-
-        # Bouton ajout bien visible dans le panneau aussi
-        ctk.CTkButton(
+        ctk.CTkLabel(
             self.frame_detail,
-            text="＋  Nouvel employé",
-            fg_color=COULEURS["accent_vert"],
-            hover_color="#059669",
-            text_color="#FFFFFF",
-            font=POLICES["bouton"],
-            height=36,
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            command=self._ouvrir_creation
+            text="Actions",
+            font=POLICES["sous_titre"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(padx=14, pady=(14, 4), anchor="w")
+
+        ctk.CTkFrame(
+            self.frame_detail, height=1,
+            fg_color=COULEURS["bordure"]
         ).pack(fill="x", padx=14, pady=(0, 10))
 
-        ctk.CTkFrame(self.frame_detail, height=1,
-                     fg_color=COULEURS["bordure"]).pack(
-                         fill="x", padx=14, pady=(0, 10))
-
-        self.lbl_sel_nom = ctk.CTkLabel(
+        self.lbl_sel = ctk.CTkLabel(
             self.frame_detail,
-            text="Cliquez sur un\nemployé pour\nle sélectionner",
+            text="Cliquez sur\nun employé",
             font=POLICES["corps_bold"],
             text_color=COULEURS["texte_secondaire"],
             justify="center", wraplength=160)
-        self.lbl_sel_nom.pack(pady=(10, 2))
+        self.lbl_sel.pack(pady=(10, 4))
 
-        self.lbl_sel_info = ctk.CTkLabel(
+        self.lbl_sel_inf = ctk.CTkLabel(
             self.frame_detail, text="",
             font=POLICES["petit"],
             text_color=COULEURS["texte_discret"],
             justify="center", wraplength=160)
-        self.lbl_sel_info.pack(pady=(0, 16))
+        self.lbl_sel_inf.pack(pady=(0, 12))
 
-        ctk.CTkFrame(self.frame_detail, height=1,
-                     fg_color=COULEURS["bordure"]).pack(
-                         fill="x", padx=14, pady=(0, 10))
+        ctk.CTkFrame(
+            self.frame_detail, height=1,
+            fg_color=COULEURS["bordure"]
+        ).pack(fill="x", padx=14, pady=(0, 10))
 
-        self.btn_modifier = ctk.CTkButton(
-            self.frame_detail, text="✏  Modifier",
-            fg_color=COULEURS["accent_bleu"],
-            hover_color=COULEURS["accent_bleu_clair"],
-            text_color="#FFFFFF",
-            font=POLICES["bouton"], height=34,
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            state="disabled",
-            command=self._ouvrir_modification)
-        self.btn_modifier.pack(fill="x", padx=14, pady=(0, 8))
+        def btn_act(texte, fg, hov, cmd,
+                    txt="#FFFFFF"):
+            b = ctk.CTkButton(
+                self.frame_detail,
+                text=texte,
+                fg_color=fg, hover_color=hov,
+                text_color=txt,
+                font=POLICES["bouton"],
+                height=34, state="disabled",
+                corner_radius=DIMENSIONS["rayon_bouton"],
+                command=cmd)
+            b.pack(fill="x", padx=14, pady=(0, 8))
+            return b
 
-        self.btn_supprimer = ctk.CTkButton(
-            self.frame_detail, text="🗑  Désactiver",
-            fg_color=COULEURS["bg_champ"],
-            hover_color=COULEURS["accent_rouge"],
-            text_color=COULEURS["texte_secondaire"],
-            font=POLICES["bouton"], height=34,
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            state="disabled",
-            command=self._confirmer_suppression)
-        self.btn_supprimer.pack(fill="x", padx=14, pady=(0, 8))
+        self.btn_modif = btn_act(
+            "✏  Modifier",
+            COULEURS["accent_bleu"],
+            COULEURS["accent_bleu_clair"],
+            self._ouvrir_modif)
 
-        self.btn_restaurer = ctk.CTkButton(
-            self.frame_detail, text="♻  Restaurer",
-            fg_color=COULEURS["bg_champ"],
-            hover_color=COULEURS["accent_vert"],
-            text_color=COULEURS["texte_secondaire"],
-            font=POLICES["bouton"], height=34,
-            corner_radius=DIMENSIONS["rayon_bouton"],
-            state="disabled",
-            command=self._confirmer_restauration)
-        self.btn_restaurer.pack(fill="x", padx=14, pady=(0, 8))
+        self.btn_arch = btn_act(
+            "📁  Fiche historique",
+            COULEURS["bg_champ"],
+            COULEURS["bg_hover"],
+            self._ouvrir_fiche,
+            txt=COULEURS["texte_principal"])
 
-    # ── Filtrage ──────────────────────────────────────────────
+        self.btn_desact = btn_act(
+            "🗑  Désactiver",
+            COULEURS["bg_champ"],
+            COULEURS["accent_rouge"],
+            self._confirmer_desact,
+            txt=COULEURS["texte_secondaire"])
+
+        self.btn_rest = btn_act(
+            "♻  Restaurer",
+            COULEURS["bg_champ"],
+            COULEURS["accent_vert"],
+            self._confirmer_rest,
+            txt=COULEURS["texte_secondaire"])
+
     def _filtrer(self):
-        recherche = self.e_recherche.get().strip()
-        dept_sel  = self.m_dept.get()
-        poly_sel  = self.m_poly.get()
+        r  = self.e_recherche.get().strip()
+        emps = employes_dao.lister_employes(
+            recherche=r)
+        self._afficher(emps)
+        self.lbl_cpt.configure(
+            text=f"{len(emps)} employé(s)")
 
-        dept_id = None
-        if dept_sel and dept_sel != "Tous les départements":
-            code = dept_sel.split("—")[0].strip()
-            for d in self._depts:
-                if d["code"] == code:
-                    dept_id = d["id"]
-                    break
-
-        employes = employes_dao.lister_employes(
-            dept_id=dept_id, recherche=recherche)
-
-        # Filtre polyclinique côté Python
-        if poly_sel and poly_sel != "Toutes les polycliniques":
-            poly_id = next(
-                (p["id"] for p in self._polys
-                 if p["nom"] == poly_sel), None)
-            if poly_id:
-                employes = [e for e in employes
-                            if e.get("polyclinique_id") == poly_id]
-
-        self._afficher_employes(employes)
-        self.lbl_compteur.configure(
-            text=f"{len(employes)} employé(s)")
-
-    def _afficher_employes(self, employes: list):
+    def _afficher(self, emps):
         for w in self.frame_liste.winfo_children():
             w.destroy()
-        self._emp_selectionne_id = None
-        self._reinitialiser_detail()
+        self._emp_sel_id = None
+        self._reinit_detail()
 
-        if not employes:
-            # État vide clair avec invitation à agir
-            frame_vide = ctk.CTkFrame(
-                self.frame_liste, fg_color="transparent")
-            frame_vide.pack(expand=True, pady=60)
-
+        if not emps:
+            f = ctk.CTkFrame(
+                self.frame_liste,
+                fg_color="transparent")
+            f.pack(expand=True, pady=50)
             ctk.CTkLabel(
-                frame_vide, text="👤",
+                f, text="👤",
                 font=("Segoe UI", 48),
-                text_color=COULEURS["texte_discret"]).pack()
+                text_color=COULEURS["texte_discret"]
+            ).pack()
             ctk.CTkLabel(
-                frame_vide,
-                text="Aucun employé dans la base de données.",
+                f, text="Aucun employé.",
                 font=POLICES["sous_titre"],
-                text_color=COULEURS["texte_secondaire"]).pack(
-                    pady=(8, 4))
-            ctk.CTkLabel(
-                frame_vide,
-                text="Cliquez sur « ＋ Nouvel employé » pour commencer.",
-                font=POLICES["corps"],
-                text_color=COULEURS["texte_discret"]).pack()
-
+                text_color=COULEURS["texte_secondaire"]
+            ).pack(pady=8)
             ctk.CTkButton(
-                frame_vide,
-                text="＋  Ajouter le premier employé",
+                f, text="＋  Ajouter le premier",
                 fg_color=COULEURS["accent_vert"],
                 hover_color="#059669",
                 text_color="#FFFFFF",
                 font=POLICES["bouton"],
-                height=42, width=280,
+                height=38, width=240,
                 corner_radius=DIMENSIONS["rayon_bouton"],
                 command=self._ouvrir_creation
-            ).pack(pady=(20, 0))
+            ).pack()
             return
 
-        for idx, emp in enumerate(employes):
+        for idx, emp in enumerate(emps):
             bg = (COULEURS["bg_carte"]
-                  if idx % 2 == 0 else COULEURS["bg_champ"])
-            frame_l = ctk.CTkFrame(
+                  if idx % 2 == 0
+                  else COULEURS["bg_champ"])
+            fl = ctk.CTkFrame(
                 self.frame_liste, fg_color=bg,
                 corner_radius=0, cursor="hand2")
-            frame_l.pack(fill="x", pady=1)
-            frame_l._emp_id = eid
+            fl.pack(fill="x", pady=1)
 
-            # Nom polyclinique (abrégé)
-            poly_nom = emp.get("poly_nom", "") or ""
-            poly_court = (poly_nom.replace("POLYCLINIQUE ", "")[:15]
-                          if poly_nom else "—")
-
-            valeurs = [
+            poly = (emp.get("poly_nom") or "—")
+            if len(poly) > 14:
+                poly = poly[:12] + "…"
+            svc  = emp.get("dept_code") or "—"
+            vals = [
                 emp["matricule"],
                 f"{emp['nom']} {emp['prenom']}",
-                emp["grade"][:18] if emp["grade"] else "",
-                emp.get("dept_code", ""),
-                poly_court,
-                "✓" if emp["est_manip_radio"] else "—",
-                "Actif" if emp["actif"] else "Inactif",
+                (emp["grade"][:16] + "…"
+                 if len(emp["grade"]) > 16
+                 else emp["grade"]),
+                svc,
+                poly,
+                "Actif" if emp["actif"]
+                else "Inactif",
             ]
-
             for i, (_, larg) in enumerate(self._cols):
                 coul = COULEURS["texte_principal"]
-                if i == 6:
+                if i == 5:
                     coul = (COULEURS["accent_vert"]
                             if emp["actif"]
                             else COULEURS["accent_rouge"])
                 ctk.CTkLabel(
-                    frame_l, text=str(valeurs[i]),
+                    fl, text=vals[i],
                     font=POLICES["tableau"],
                     text_color=coul,
                     width=larg, anchor="w"
-                ).pack(side="left", padx=6, pady=6)
+                ).pack(side="left", padx=6, pady=5)
 
-            eid  = emp["id"]
+            eid = emp["id"]
             edat = emp
 
-            def on_enter(e, f=frame_l):
-                f.configure(fg_color=COULEURS["bg_hover"])
-            def on_leave(e, f=frame_l, b=bg):
+            def _enter(e, f=fl):
+                f.configure(
+                    fg_color=COULEURS["bg_hover"])
+            def _leave(e, f=fl, b=bg):
                 f.configure(fg_color=b)
-            def on_click(e, i=eid, d=edat):
+            def _click(e, i=eid, d=edat):
                 self._selectionner(i, d)
-            def on_dbl(e, i=eid):
-                from app.views.fiche_employe import FicheEmploye
-                FicheEmploye(self, i)
+            def _dbl(e, i=eid):
+                self._ouvrir_fiche_id(i)
 
-            for w in [frame_l] + frame_l.winfo_children():
-                w.bind("<Enter>", on_enter)
-                w.bind("<Leave>", on_leave)
-                w.bind("<Button-1>", on_click)
-                w.bind("<Double-Button-1>", on_dbl)
+            for w in [fl] + fl.winfo_children():
+                w.bind("<Enter>", _enter)
+                w.bind("<Leave>", _leave)
+                w.bind("<Button-1>", _click)
+                w.bind("<Double-Button-1>", _dbl)
 
-    def _selectionner(self, emp_id, emp):
-        self._emp_selectionne_id = emp_id
-        poly_txt = emp.get("poly_nom") or "—"
-        if len(poly_txt) > 25:
-            poly_txt = poly_txt[:22] + "…"
-        self.lbl_sel_nom.configure(
+    def _selectionner(self, eid, emp):
+        self._emp_sel_id = eid
+        self.lbl_sel.configure(
             text=f"{emp['nom']}\n{emp['prenom']}",
             text_color=COULEURS["texte_principal"])
-        self.lbl_sel_info.configure(
-            text=(f"{emp['grade']}\n"
-                  f"{emp.get('dept_code','')}\n"
-                  f"{poly_txt}\n"
-                  f"{'⚡ Radiation' if emp['est_manip_radio'] else ''}").strip())
-        self.btn_modifier.configure(state="normal")
+        self.lbl_sel_inf.configure(
+            text=emp.get("grade", ""))
+        self.btn_modif.configure(state="normal")
+        self.btn_arch.configure(state="normal")
         if emp["actif"]:
-            self.btn_supprimer.configure(state="normal")
-            self.btn_restaurer.configure(state="disabled")
+            self.btn_desact.configure(state="normal")
+            self.btn_rest.configure(state="disabled")
         else:
-            self.btn_supprimer.configure(state="disabled")
-            self.btn_restaurer.configure(state="normal")
+            self.btn_desact.configure(state="disabled")
+            self.btn_rest.configure(state="normal")
         self.lbl_pied.configure(
-            text=f"Sélectionné : {emp['matricule']} — "
+            text=f"{emp['matricule']} — "
                  f"{emp['nom']} {emp['prenom']}")
 
-    def _reinitialiser_detail(self):
-        self.lbl_sel_nom.configure(
-            text="Cliquez sur un\nemployé pour\nle sélectionner",
+    def _reinit_detail(self):
+        self.lbl_sel.configure(
+            text="Cliquez sur\nun employé",
             text_color=COULEURS["texte_secondaire"])
-        self.lbl_sel_info.configure(text="")
-        self.btn_modifier.configure(state="disabled")
-        self.btn_supprimer.configure(state="disabled")
-        self.btn_restaurer.configure(state="disabled")
+        self.lbl_sel_inf.configure(text="")
+        for b in [self.btn_modif, self.btn_arch,
+                  self.btn_desact, self.btn_rest]:
+            b.configure(state="disabled")
         self.lbl_pied.configure(text="")
 
     def _ouvrir_creation(self):
-        DialogueEmploye(self,
-                        callback_succes=self._apres_sauvegarde)
+        # Pas de refresh automatique destructif
+        def _apres(res):
+            # Refresh différé — ne touche pas
+            # aux fenêtres ouvertes
+            self.after(100, self._filtrer)
 
-    def _ouvrir_modification(self):
-        if not self._emp_selectionne_id:
+        DialogueEmploye(
+            self, callback_succes=_apres)
+
+    def _ouvrir_modif(self):
+        if not self._emp_sel_id:
             return
-        DialogueEmploye(self,
-                        emp_id=self._emp_selectionne_id,
-                        callback_succes=self._apres_sauvegarde)
+        def _apres(res):
+            self.after(100, self._filtrer)
+        DialogueEmploye(
+            self,
+            emp_id=self._emp_sel_id,
+            callback_succes=_apres)
 
-    def _confirmer_suppression(self):
-        if not self._emp_selectionne_id:
+    def _ouvrir_fiche(self):
+        if self._emp_sel_id:
+            self._ouvrir_fiche_id(self._emp_sel_id)
+
+    def _ouvrir_fiche_id(self, eid):
+        from app.views.fiche_employe import (
+            FicheEmploye)
+        FicheEmploye(self, emp_id=eid)
+
+    def _confirmer_desact(self):
+        if not self._emp_sel_id:
             return
         dlg = DialogueConfirmation(
             self,
-            titre="Désactiver l'employé",
-            message="Cet employé sera marqué inactif.\n"
-                    "Ses données et congés sont conservés.",
+            titre="Désactiver",
+            message="Désactiver cet employé ?\n"
+                    "Données conservées.",
             texte_confirmer="Désactiver",
             style="danger")
         self.wait_window(dlg)
         if dlg.reponse:
             employes_dao.supprimer_employe(
-                self._emp_selectionne_id)
-            self._apres_sauvegarde({})
+                self._emp_sel_id)
+            self.after(100, self._filtrer)
 
-    def _confirmer_restauration(self):
-        if not self._emp_selectionne_id:
+    def _confirmer_rest(self):
+        if not self._emp_sel_id:
             return
         dlg = DialogueConfirmation(
             self,
-            titre="Restaurer l'employé",
-            message="Cet employé sera remis actif.",
+            titre="Restaurer",
+            message="Remettre cet employé actif ?",
             texte_confirmer="Restaurer",
             style="succes")
         self.wait_window(dlg)
         if dlg.reponse:
             employes_dao.restaurer_employe(
-                self._emp_selectionne_id)
-            self._apres_sauvegarde({})
-
-    def _apres_sauvegarde(self, _):
-        self._filtrer()
+                self._emp_sel_id)
+            self.after(100, self._filtrer)
 
     def rafraichir(self):
-        for w in self.winfo_children():
-            w.destroy()
-        self._construire()
-
-
-# ── Patch : ouvrir la fiche au double-clic ────────────────────────
-def _patch_fiche(vue: VueEmployes):
-    """Ajoute l'ouverture de la Fiche au double-clic sur une ligne."""
-    _original_afficher = vue._afficher_employes
-
-    def _afficher_avec_fiche(employes):
-        _original_afficher(employes)
-        # Rebinder double-clic sur chaque ligne déjà créée
-        for frame_l in vue.frame_liste.winfo_children():
-            eid = getattr(frame_l, "_emp_id", None)
-            if eid:
-                frame_l.bind(
-                    "<Double-Button-1>",
-                    lambda e, i=eid: _ouvrir_fiche(vue, i))
-
-    vue._afficher_employes = _afficher_avec_fiche
-
-
-def _ouvrir_fiche(vue, emp_id: int):
-    from app.views.fiche_employe import FicheEmploye
-    FicheEmploye(vue, emp_id)
+        # Refresh prudent : ne détruit PAS
+        # les Toplevel actifs
+        try:
+            self._filtrer()
+        except Exception:
+            pass

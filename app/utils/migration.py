@@ -124,3 +124,20 @@ def migrer():
 
 if __name__ == "__main__":
     migrer()
+
+
+def migrer_services():
+    """Ajoute la colonne service si absente."""
+    from app.utils.database import get_connection
+    conn = get_connection()
+    c    = conn.cursor()
+    cols = [r[1] for r in c.execute(
+        "PRAGMA table_info(employes)").fetchall()]
+    if "service" not in cols:
+        c.execute(
+            "ALTER TABLE employes "
+            "ADD COLUMN service TEXT "
+            "DEFAULT 'Autre'")
+        conn.commit()
+        print("[+] Colonne service ajoutee")
+    conn.close()

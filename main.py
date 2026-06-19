@@ -1,8 +1,6 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""Point d'entrée — EPSP ES-SENIA avec Splash Screen"""
-import sys
-import os
-
+"""Point d'entrée — EPSP ES-SENIA"""
+import sys, os
 sys.path.insert(
     0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,17 +31,13 @@ class AppRoot(ctk.CTk):
             fg_color=COULEURS["bg_principal"])
         self.protocol(
             "WM_DELETE_WINDOW", self._fermeture)
-
-        # Masquer root pendant le splash
         self.withdraw()
         self._afficher_splash()
 
     def _afficher_splash(self):
         from app.views.splash import SplashScreen
-        SplashScreen(
-            self,
-            duree_ms=2800,
-            callback=self._apres_splash)
+        SplashScreen(self, duree_ms=2500,
+                     callback=self._apres_splash)
 
     def _apres_splash(self):
         self.deiconify()
@@ -81,7 +75,6 @@ class AppRoot(ctk.CTk):
         self.title(
             f"EPSP {poly} — "
             f"Gestionnaire Congés v{get_version()}")
-
         from app.views.app_principale import (
             AppPrincipale)
         app = AppPrincipale(self)
@@ -99,6 +92,13 @@ class AppRoot(ctk.CTk):
 def main():
     initialize_database()
     migrer()
+    # Migrer colonne service
+    try:
+        from app.utils.migration import (
+            migrer_services)
+        migrer_services()
+    except Exception:
+        pass
     app = AppRoot()
     app.mainloop()
 
