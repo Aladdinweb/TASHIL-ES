@@ -257,5 +257,163 @@ class AppPrincipale(ctk.CTkFrame):
         except Exception as ex:
             messagebox.showerror("Erreur", str(ex))
 
+    def _verifier_maj(self):
+        try:
+            from app.utils.updater import (
+                verifier_en_arriere_plan,
+                version_plus_recente)
+
+            def _cb(info):
+                if info is None:
+                    self.after(0, lambda:
+                        messagebox.showinfo(
+                            "Mise à jour",
+                            "Impossible de vérifier.\n"
+                            "Vérifiez votre connexion."))
+                    return
+                tag = info.get("tag", "")
+                if version_plus_recente(tag):
+                    self.after(
+                        0,
+                        lambda: self._proposer_maj(
+                            info))
+                else:
+                    self.after(0, lambda:
+                        messagebox.showinfo(
+                            "✅ À jour",
+                            f"Vous utilisez la "
+                            f"dernière version.\n"
+                            f"Version : v{get_version()}"))
+
+            verifier_en_arriere_plan(_cb)
+        except Exception as ex:
+            messagebox.showerror("Erreur", str(ex))
+
+    def _proposer_maj(self, info: dict):
+        from app.utils.updater import (
+            telecharger_et_remplacer)
+
+        tag     = info.get("tag", "")
+        taille  = info.get("taille", 0)
+        taille_mb = round(taille / 1024 / 1024, 1)
+        notes   = info.get("notes", "")[:200]
+        url_exe = info.get("url_exe", "")
+
+        if not url_exe:
+            messagebox.showerror(
+                "Erreur",
+                "Aucun fichier .exe trouvé "
+                "dans cette Release.")
+            return
+
+        rep = messagebox.askyesno(
+            "🔄  Nouvelle version disponible",
+            f"Version {tag} disponible !\n\n"
+            f"Taille : {taille_mb} MB\n\n"
+            f"{notes}\n\n"
+            "Télécharger et installer "
+            "automatiquement ?\n"
+            "(L'application redémarrera.)")
+        if not rep:
+            return
+
+        # Fenêtre de progression
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Mise à jour en cours…")
+        dlg.configure(
+            fg_color=COULEURS["bg_principal"])
+        dlg.geometry("380x150")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.attributes("-topmost", True)
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"Téléchargement {tag}…",
+            font=POLICES["corps"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(pady=(18, 8))
+
+        barre = ctk.CTkProgressBar(
+            dlg, mode="determinate",
+            fg_color=COULEURS["bg_champ"],
+            progress_color=COULEURS["accent_bleu"],
+            height=12, corner_radius=6)
+        barre.pack(fill="x", padx=24)
+        barre.set(0)
+
+        lbl_pct = ctk.CTkLabel(
+            dlg, text="0%",
+            font=POLICES["corps_bold"],
+            text_color=COULEURS["accent_bleu"])
+        lbl_pct.pack(pady=6)
+
+        lbl_info = ctk.CTkLabel(
+            dlg, text="Connexion au serveur…",
+            font=POLICES["petit"],
+            text_color=COULEURS["texte_secondaire"])
+        lbl_info.pack()
+
+        def _prog(pct):
+            self.after(
+                0,
+                lambda: barre.set(pct / 100))
+            self.after(
+                0,
+                lambda: lbl_pct.configure(
+                    text=f"{pct}%"))
+            if pct < 100:
+                self.after(
+                    0,
+                    lambda: lbl_info.configure(
+                        text=f"Téléchargement… "
+                             f"{pct}%"))
+            else:
+                self.after(
+                    0,
+                    lambda: lbl_info.configure(
+                        text="Préparation du "
+                             "remplacement…"))
+
+        def _fin(ok, err):
+            self.after(0, lambda: _on_fin(ok, err))
+
+        def _on_fin(ok, err):
+            try:
+                dlg.destroy()
+            except Exception:
+                pass
+            if ok:
+                messagebox.showinfo(
+                    "✅ Mise à jour réussie",
+                    "La nouvelle version a été "
+                    "téléchargée.\n\n"
+                    "L'application va se fermer "
+                    "et redémarrer "
+                    "automatiquement.")
+                self.after(800, self._quitter)
+            else:
+                messagebox.showerror(
+                    "Erreur de mise à jour",
+                    f"La mise à jour a échoué :\n"
+                    f"{err}\n\n"
+                    "Téléchargez manuellement sur :\n"
+                    "github.com/Aladdinweb/"
+                    "epsp-conge-manager/releases")
+
+        telecharger_et_remplacer(
+            url_exe, _prog, _fin)
+
+    def _quitter(self):
+        from app.utils.database import faire_backup
+        try:
+            faire_backup("avant_maj")
+        except Exception:
+            pass
+        # Fermer proprement — le .bat
+        # relancera l'app
+        import os, sys
+        os._exit(0)
+
     def rafraichir(self):
         pass
