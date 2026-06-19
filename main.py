@@ -1,5 +1,5 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""Point d'entrée — EPSP ES-SENIA"""
+"""Point d'entrée — EPSP ES-SENIA avec Splash Screen"""
 import sys
 import os
 
@@ -17,16 +17,9 @@ ctk.set_default_color_theme("blue")
 
 
 class AppRoot(ctk.CTk):
-    """
-    Fenêtre racine unique.
-    Affiche soit l'écran d'activation,
-    soit la vue principale — sans jamais détruire root.
-    """
-
     def __init__(self):
         super().__init__()
-        self.title(
-            "EPSP ES-SENIA — Gestionnaire Congés")
+        self.title("EPSP ES-SENIA")
         w = DIMENSIONS["fenetre_w"]
         h = DIMENSIONS["fenetre_h"]
         self.update_idletasks()
@@ -41,20 +34,33 @@ class AppRoot(ctk.CTk):
         self.protocol(
             "WM_DELETE_WINDOW", self._fermeture)
 
-        self._vue_courante = None
+        # Masquer root pendant le splash
+        self.withdraw()
+        self._afficher_splash()
+
+    def _afficher_splash(self):
+        from app.views.splash import SplashScreen
+        SplashScreen(
+            self,
+            duree_ms=2800,
+            callback=self._apres_splash)
+
+    def _apres_splash(self):
+        self.deiconify()
         self._demarrer()
 
     def _demarrer(self):
         if not get_config("activation_done"):
             self._afficher_activation()
         else:
-            self._afficher_app_principale()
+            self._afficher_app()
 
     def _vider(self):
-        """Supprime tous les widgets enfants."""
-        for widget in self.winfo_children():
-            widget.destroy()
-        self._vue_courante = None
+        for w in self.winfo_children():
+            try:
+                w.destroy()
+            except Exception:
+                pass
 
     def _afficher_activation(self):
         self._vider()
@@ -62,32 +68,24 @@ class AppRoot(ctk.CTk):
             VueActivation)
 
         def _apres(code, nom):
-            self.after(100,
-                       self._afficher_app_principale)
+            self.after(150, self._afficher_app)
 
         ecran = VueActivation(
-            self,
-            on_activation_complete=_apres)
+            self, on_activation_complete=_apres)
         ecran.pack(fill="both", expand=True)
-        self._vue_courante = ecran
 
-    def _afficher_app_principale(self):
+    def _afficher_app(self):
         self._vider()
-
-        # Mettre à jour le titre avec poly_nom
         from app.utils.version import get_version
         poly = get_config("poly_nom") or "ES-SENIA"
         self.title(
             f"EPSP {poly} — "
-            f"Gestionnaire Congés Annuels "
-            f"v{get_version()}")
+            f"Gestionnaire Congés v{get_version()}")
 
-        # Charger la sidebar + vues dans self
         from app.views.app_principale import (
             AppPrincipale)
         app = AppPrincipale(self)
         app.pack(fill="both", expand=True)
-        self._vue_courante = app
 
     def _fermeture(self):
         from app.utils.database import faire_backup

@@ -65,7 +65,10 @@ a = Analysis(
         'app.views.dialogue_annulation',
         'app.views.fiche_employe',
         'app.reports',
-        'app.reports.bordereau_excel',
+        'app.views.splash',
+    'app.views.dialogue_conge_rapide',
+    'app.views.dialogue_transfert',
+    'app.reports.bordereau_excel',
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -93,3 +96,4 @@ exe = EXE(
     console=False,
     onefile=True,
 )
+# Patch hiddenimports ajout Step 11
