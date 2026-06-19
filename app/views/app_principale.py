@@ -1,7 +1,6 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
-AppPrincipale — 7 onglets navigation
-Congé et Reliquat sont séparés.
+AppPrincipale — Navigation + Mise à jour automatique
 """
 import customtkinter as ctk
 from tkinter import messagebox
@@ -13,12 +12,12 @@ from app.utils.version import get_version
 class AppPrincipale(ctk.CTkFrame):
     ONGLETS = [
         ("dashboard", "Tableau de bord", "◉"),
-        ("employes",  "Employés",         "👤"),
-        ("conge",     "Congés",           "📅"),
-        ("reliquat",  "Reliquats",        "🗂"),
-        ("bordereau", "Bordereau",        "📄"),
-        ("service",   "Tableau Service",  "📋"),
-        ("admin",     "Administration",   "⚙"),
+        ("employes",  "Employés",        "👤"),
+        ("conge",     "Congés",          "📅"),
+        ("reliquat",  "Reliquats",       "🗂"),
+        ("bordereau", "Bordereau",       "📄"),
+        ("service",   "Tableau Service", "📋"),
+        ("admin",     "Administration",  "⚙"),
     ]
 
     def __init__(self, parent, **kwargs):
@@ -33,10 +32,11 @@ class AppPrincipale(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self._construire_sidebar()
-        self._construire_zone_contenu()
+        self._construire_contenu()
         self._verifier_rollover_auto()
         self._naviguer("dashboard")
 
+    # ── Sidebar ───────────────────────────────────
     def _construire_sidebar(self):
         sb = ctk.CTkFrame(
             self,
@@ -47,12 +47,14 @@ class AppPrincipale(ctk.CTkFrame):
         sb.grid_propagate(False)
 
         # Logo
-        fl = ctk.CTkFrame(sb, fg_color="transparent")
-        fl.pack(fill="x", padx=16, pady=(24, 0))
+        fl = ctk.CTkFrame(sb,
+                          fg_color="transparent")
+        fl.pack(fill="x", padx=16,
+                pady=(24, 0))
         badge = ctk.CTkFrame(
-            fl,
-            fg_color=COULEURS["accent_bleu"],
-            corner_radius=8, width=44, height=44)
+            fl, fg_color=COULEURS["accent_bleu"],
+            corner_radius=8,
+            width=44, height=44)
         badge.pack(side="left")
         badge.pack_propagate(False)
         ctk.CTkLabel(
@@ -82,13 +84,15 @@ class AppPrincipale(ctk.CTkFrame):
         ctk.CTkFrame(
             sb, height=1,
             fg_color=COULEURS["bordure"]
-        ).pack(fill="x", padx=16, pady=(18, 14))
+        ).pack(fill="x", padx=16,
+               pady=(18, 14))
 
         ctk.CTkLabel(
             sb, text="NAVIGATION",
             font=("Segoe UI", 9, "bold"),
             text_color=COULEURS["texte_discret"]
-        ).pack(anchor="w", padx=20, pady=(0, 8))
+        ).pack(anchor="w", padx=20,
+               pady=(0, 8))
 
         for cle, libelle, icone in self.ONGLETS:
             if cle in ("service", "admin"):
@@ -104,14 +108,14 @@ class AppPrincipale(ctk.CTkFrame):
                 fg_color="transparent",
                 hover_color=COULEURS["bg_hover"],
                 text_color=COULEURS["sidebar_inact_txt"],
-                font=POLICES["nav"], height=42,
-                corner_radius=8,
+                font=POLICES["nav"],
+                height=42, corner_radius=8,
                 command=lambda c=cle:
                     self._naviguer(c))
             btn.pack(fill="x", padx=12, pady=2)
             self._boutons_nav[cle] = btn
 
-        # Pied
+        # Pied sidebar
         fp = ctk.CTkFrame(sb,
                           fg_color="transparent")
         fp.pack(side="bottom", fill="x",
@@ -120,16 +124,19 @@ class AppPrincipale(ctk.CTkFrame):
             fp, height=1,
             fg_color=COULEURS["bordure"]
         ).pack(fill="x", pady=(0, 8))
-        ctk.CTkButton(
+
+        # Bouton MAJ
+        self.btn_maj = ctk.CTkButton(
             fp,
             text="🔄  Vérifier les mises à jour",
             fg_color="transparent",
             hover_color=COULEURS["bg_hover"],
             text_color=COULEURS["texte_discret"],
-            font=("Segoe UI", 9), height=26,
-            corner_radius=6,
-            command=self._verifier_maj
-        ).pack(fill="x", pady=(0, 4))
+            font=("Segoe UI", 9),
+            height=28, corner_radius=6,
+            command=self._verifier_maj)
+        self.btn_maj.pack(fill="x", pady=(0, 6))
+
         ctk.CTkLabel(
             fp,
             text=f"v{get_version()}  •  "
@@ -139,7 +146,7 @@ class AppPrincipale(ctk.CTkFrame):
             justify="center"
         ).pack()
 
-    def _construire_zone_contenu(self):
+    def _construire_contenu(self):
         self.frame_contenu = ctk.CTkFrame(
             self,
             fg_color=COULEURS["bg_principal"],
@@ -151,6 +158,7 @@ class AppPrincipale(ctk.CTkFrame):
         self.frame_contenu.grid_columnconfigure(
             0, weight=1)
 
+    # ── Navigation ────────────────────────────────
     def _naviguer(self, cle: str):
         if cle == self._vue_active:
             return
@@ -160,17 +168,14 @@ class AppPrincipale(ctk.CTkFrame):
                     fg_color=COULEURS["sidebar_active_bg"],
                     text_color=COULEURS["sidebar_active_txt"])
             else:
-                t = btn.cget("text")
-                if "⚠" not in t:
+                if "⚠" not in btn.cget("text"):
                     btn.configure(
                         fg_color="transparent",
                         text_color=COULEURS["sidebar_inact_txt"])
-
         if (self._vue_active and
                 self._vue_active in self._vues_cache):
             self._vues_cache[
                 self._vue_active].grid_remove()
-
         if cle not in self._vues_cache:
             vue = self._creer_vue(cle)
             vue.grid(row=0, column=0,
@@ -185,10 +190,8 @@ class AppPrincipale(ctk.CTkFrame):
         self._vue_active = cle
 
     def _creer_vue(self, cle: str):
-        from app.views.vue_dashboard import (
-            VueDashboard)
-        from app.views.vue_employes import (
-            VueEmployes)
+        from app.views.vue_dashboard import VueDashboard
+        from app.views.vue_employes import VueEmployes
         from app.views.vue_conge import VueConge
         from app.views.vue_reliquat import VueReliquat
         from app.views.vue_bordereau_maintenance import (
@@ -197,7 +200,6 @@ class AppPrincipale(ctk.CTkFrame):
             VueTableauService)
         from app.views.vue_administration import (
             VueAdministration)
-
         vues = {
             "dashboard":  VueDashboard,
             "employes":   VueEmployes,
@@ -225,194 +227,212 @@ class AppPrincipale(ctk.CTkFrame):
         except Exception:
             pass
 
-    def _verifier_maj(self):
-        try:
-            from app.utils.updater import (
-                verifier_en_arriere_plan,
-                version_plus_recente)
-
-            def _cb(info):
-                if info is None:
-                    self.after(0, lambda:
-                        messagebox.showinfo(
-                            "Mise à jour",
-                            "Pas de connexion."))
-                    return
-                tag = info.get("tag", "")
-                if version_plus_recente(tag):
-                    self.after(0, lambda:
-                        messagebox.showinfo(
-                            "Nouvelle version",
-                            f"Version {tag} disponible !\n"
-                            "Téléchargez dans Releases."))
-                else:
-                    self.after(0, lambda:
-                        messagebox.showinfo(
-                            "À jour",
-                            f"✅ Version actuelle : "
-                            f"v{get_version()}\n"
-                            f"Distante : {tag}"))
-
-            verifier_en_arriere_plan(_cb)
-        except Exception as ex:
-            messagebox.showerror("Erreur", str(ex))
+    # ══════════════════════════════════════════════
+    # SYSTÈME DE MISE À JOUR AUTOMATIQUE
+    # ══════════════════════════════════════════════
 
     def _verifier_maj(self):
-        try:
-            from app.utils.updater import (
-                verifier_en_arriere_plan,
-                version_plus_recente)
+        """Lance la vérification en arrière-plan."""
+        # Désactiver le bouton pendant la vérif
+        self.btn_maj.configure(
+            state="disabled",
+            text="⏳  Vérification…")
 
-            def _cb(info):
-                if info is None:
-                    self.after(0, lambda:
-                        messagebox.showinfo(
-                            "Mise à jour",
-                            "Impossible de vérifier.\n"
-                            "Vérifiez votre connexion."))
-                    return
-                tag = info.get("tag", "")
-                if version_plus_recente(tag):
-                    self.after(
-                        0,
-                        lambda: self._proposer_maj(
-                            info))
-                else:
-                    self.after(0, lambda:
-                        messagebox.showinfo(
-                            "✅ À jour",
-                            f"Vous utilisez la "
-                            f"dernière version.\n"
-                            f"Version : v{get_version()}"))
+        from app.utils.updater import (
+            verifier_en_arriere_plan,
+            version_plus_recente)
 
-            verifier_en_arriere_plan(_cb)
-        except Exception as ex:
-            messagebox.showerror("Erreur", str(ex))
+        def _cb(info):
+            # Réactiver le bouton
+            self.after(0, lambda:
+                self.btn_maj.configure(
+                    state="normal",
+                    text="🔄  Vérifier les mises à jour"))
+
+            if info is None:
+                self.after(0, lambda:
+                    messagebox.showwarning(
+                        "Mise à jour",
+                        "Impossible de contacter GitHub.\n"
+                        "Vérifiez votre connexion internet."))
+                return
+
+            tag = info.get("tag", "")
+            url = info.get("url_exe", "")
+
+            if not tag:
+                self.after(0, lambda:
+                    messagebox.showwarning(
+                        "Mise à jour",
+                        "Impossible de lire la version."))
+                return
+
+            if version_plus_recente(tag):
+                # Nouvelle version → proposer MAJ
+                self.after(0, lambda:
+                    self._proposer_maj(info))
+            else:
+                self.after(0, lambda:
+                    messagebox.showinfo(
+                        "✅  Application à jour",
+                        f"Vous utilisez la dernière version.\n\n"
+                        f"Version installée : v{get_version()}\n"
+                        f"Version distante  : {tag}"))
+
+        verifier_en_arriere_plan(_cb)
 
     def _proposer_maj(self, info: dict):
-        from app.utils.updater import (
-            telecharger_et_remplacer)
-
-        tag     = info.get("tag", "")
-        taille  = info.get("taille", 0)
+        """
+        Propose le téléchargement et l'installation
+        automatique de la nouvelle version.
+        """
+        tag      = info.get("tag", "")
+        url_exe  = info.get("url_exe", "")
+        taille   = info.get("taille", 0)
+        notes    = info.get("notes", "")[:300]
         taille_mb = round(taille / 1024 / 1024, 1)
-        notes   = info.get("notes", "")[:200]
-        url_exe = info.get("url_exe", "")
 
         if not url_exe:
             messagebox.showerror(
                 "Erreur",
                 "Aucun fichier .exe trouvé "
-                "dans cette Release.")
+                "dans la Release.\n"
+                "Téléchargez manuellement sur GitHub.")
             return
 
+        msg = (
+            f"🆕  Nouvelle version : {tag}\n\n"
+            f"Version actuelle : v{get_version()}\n"
+            f"Taille du fichier : {taille_mb} MB\n\n"
+        )
+        if notes:
+            msg += f"Notes :\n{notes}\n\n"
+        msg += (
+            "Voulez-vous télécharger et installer\n"
+            "la mise à jour automatiquement ?\n\n"
+            "L'application redémarrera après."
+        )
+
         rep = messagebox.askyesno(
-            "🔄  Nouvelle version disponible",
-            f"Version {tag} disponible !\n\n"
-            f"Taille : {taille_mb} MB\n\n"
-            f"{notes}\n\n"
-            "Télécharger et installer "
-            "automatiquement ?\n"
-            "(L'application redémarrera.)")
+            "Mise à jour disponible", msg)
+
         if not rep:
             return
 
-        # Fenêtre de progression
+        self._lancer_telechargement(url_exe, tag)
+
+    def _lancer_telechargement(
+            self, url_exe: str, tag: str):
+        """
+        Ouvre la fenêtre de progression et lance
+        le téléchargement.
+        """
+        from app.utils.updater import (
+            telecharger_et_remplacer)
+
+        # Fenêtre progression
         dlg = ctk.CTkToplevel(self)
-        dlg.title("Mise à jour en cours…")
+        dlg.title(f"Téléchargement {tag}…")
         dlg.configure(
             fg_color=COULEURS["bg_principal"])
-        dlg.geometry("380x150")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.attributes("-topmost", True)
+        dlg.protocol(
+            "WM_DELETE_WINDOW", lambda: None)
+
+        w, h = 420, 180
+        dlg.update_idletasks()
+        x = (dlg.winfo_screenwidth()  - w) // 2
+        y = (dlg.winfo_screenheight() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
 
         ctk.CTkLabel(
             dlg,
-            text=f"Téléchargement {tag}…",
-            font=POLICES["corps"],
+            text=f"Téléchargement de la version "
+                 f"{tag}…",
+            font=POLICES["sous_titre"],
             text_color=COULEURS["texte_principal"]
-        ).pack(pady=(18, 8))
+        ).pack(pady=(20, 10))
 
         barre = ctk.CTkProgressBar(
             dlg, mode="determinate",
             fg_color=COULEURS["bg_champ"],
             progress_color=COULEURS["accent_bleu"],
-            height=12, corner_radius=6)
-        barre.pack(fill="x", padx=24)
+            height=16, corner_radius=8)
+        barre.pack(fill="x", padx=30)
         barre.set(0)
 
         lbl_pct = ctk.CTkLabel(
-            dlg, text="0%",
+            dlg, text="0 %",
             font=POLICES["corps_bold"],
             text_color=COULEURS["accent_bleu"])
-        lbl_pct.pack(pady=6)
+        lbl_pct.pack(pady=4)
 
         lbl_info = ctk.CTkLabel(
-            dlg, text="Connexion au serveur…",
+            dlg,
+            text="Connexion au serveur GitHub…",
             font=POLICES["petit"],
             text_color=COULEURS["texte_secondaire"])
         lbl_info.pack()
 
-        def _prog(pct):
-            self.after(
-                0,
-                lambda: barre.set(pct / 100))
-            self.after(
-                0,
-                lambda: lbl_pct.configure(
-                    text=f"{pct}%"))
-            if pct < 100:
-                self.after(
-                    0,
-                    lambda: lbl_info.configure(
-                        text=f"Téléchargement… "
-                             f"{pct}%"))
-            else:
-                self.after(
-                    0,
-                    lambda: lbl_info.configure(
-                        text="Préparation du "
-                             "remplacement…"))
+        # Callbacks thread-safe
+        def _prog(pct: int):
+            self.after(0, lambda p=pct: (
+                barre.set(p / 100),
+                lbl_pct.configure(
+                    text=f"{p} %"),
+                lbl_info.configure(
+                    text=("Finalisation…"
+                          if p >= 100
+                          else f"Téléchargement… {p} %")),
+            ))
 
-        def _fin(ok, err):
-            self.after(0, lambda: _on_fin(ok, err))
-
-        def _on_fin(ok, err):
-            try:
-                dlg.destroy()
-            except Exception:
-                pass
-            if ok:
-                messagebox.showinfo(
-                    "✅ Mise à jour réussie",
-                    "La nouvelle version a été "
-                    "téléchargée.\n\n"
-                    "L'application va se fermer "
-                    "et redémarrer "
-                    "automatiquement.")
-                self.after(800, self._quitter)
-            else:
-                messagebox.showerror(
-                    "Erreur de mise à jour",
-                    f"La mise à jour a échoué :\n"
-                    f"{err}\n\n"
-                    "Téléchargez manuellement sur :\n"
-                    "github.com/Aladdinweb/"
-                    "epsp-conge-manager/releases")
+        def _fin(ok: bool, err: str):
+            self.after(0, lambda:
+                self._apres_telechargement(
+                    dlg, ok, err))
 
         telecharger_et_remplacer(
             url_exe, _prog, _fin)
 
-    def _quitter(self):
-        from app.utils.database import faire_backup
+    def _apres_telechargement(
+            self, dlg, ok: bool, err: str):
+        """Appelé après la fin du téléchargement."""
         try:
+            dlg.destroy()
+        except Exception:
+            pass
+
+        if ok:
+            messagebox.showinfo(
+                "✅  Mise à jour réussie",
+                "La nouvelle version a été "
+                "téléchargée avec succès.\n\n"
+                "L'application va se fermer et "
+                "redémarrer automatiquement.\n\n"
+                "Merci de patienter 5 secondes.")
+            # Backup DB puis fermeture
+            self.after(500, self._fermer_pour_maj)
+        else:
+            messagebox.showerror(
+                "❌  Échec de la mise à jour",
+                f"Le téléchargement a échoué :\n"
+                f"{err}\n\n"
+                "Téléchargez manuellement sur :\n"
+                "github.com/Aladdinweb/"
+                "epsp-conge-manager/releases")
+
+    def _fermer_pour_maj(self):
+        """Backup + fermeture propre pour MAJ."""
+        try:
+            from app.utils.database import (
+                faire_backup)
             faire_backup("avant_maj")
         except Exception:
             pass
-        # Fermer proprement — le .bat
-        # relancera l'app
-        import os, sys
+        # os._exit pour laisser le .bat travailler
+        import os
         os._exit(0)
 
     def rafraichir(self):
