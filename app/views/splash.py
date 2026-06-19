@@ -1,39 +1,32 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
-Splash Screen — EPSP ES-SENIA
-Drapeau algérien animé avant le chargement.
+Splash Screen — Thread-safe, zéro deadlock.
 """
 import customtkinter as ctk
-import threading
-import time
-from app.utils.theme import COULEURS
 from app.utils.version import get_full_label
 
 
 class SplashScreen(ctk.CTkToplevel):
     """
-    Fenêtre splash affichée au démarrage.
-    S'auto-ferme après `duree_ms` millisecondes.
-    callback() est appelé à la fermeture.
+    Splash animé. callback() appelé via after()
+    — jamais depuis un thread secondaire.
     """
 
     def __init__(self, parent,
-                 duree_ms: int = 2800,
+                 duree_ms: int = 2400,
                  callback=None):
         super().__init__(parent)
-        self._callback  = callback
-        self._duree_ms  = duree_ms
-        self._alpha     = 0.0
-        self._phase     = "in"  # in → hold → out
+        self._callback = callback
+        self._parent   = parent
 
-        # Fenêtre sans bordure, centrée
+        # Fenêtre sans décoration
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.0)
         self.configure(fg_color="#0A1628")
         self.resizable(False, False)
 
-        w, h = 520, 340
+        w, h = 500, 320
         self.update_idletasks()
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
@@ -42,134 +35,133 @@ class SplashScreen(ctk.CTkToplevel):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
         self._construire()
-        self._animer_entree()
+        # Démarrer animation via after()
+        self.after(10, lambda: self._fade(0.0, "in"))
 
     def _construire(self):
-        # Fond principal
         frame = ctk.CTkFrame(
             self, fg_color="#0A1628",
-            corner_radius=16,
+            corner_radius=14,
             border_width=2,
-            border_color="#2563EB")
+            border_color="#1E40AF")
         frame.pack(fill="both", expand=True,
                    padx=2, pady=2)
 
-        # Drapeau algérien (texte Unicode large)
         ctk.CTkLabel(
             frame, text="🇩🇿",
-            font=("Segoe UI", 80)
-        ).pack(pady=(30, 4))
-
-        # Ligne verte/blanche simulée
-        f_flag = ctk.CTkFrame(
-            frame, fg_color="transparent")
-        f_flag.pack()
-        ctk.CTkFrame(
-            f_flag, width=60, height=6,
-            fg_color="#006233",
-            corner_radius=3
-        ).pack(side="left", padx=2)
-        ctk.CTkFrame(
-            f_flag, width=60, height=6,
-            fg_color="#FFFFFF",
-            corner_radius=3
-        ).pack(side="left", padx=2)
-
-        # Titre
-        ctk.CTkLabel(
-            frame,
-            text="EPSP ES-SENIA",
-            font=("Segoe UI", 22, "bold"),
-            text_color="#FFFFFF"
-        ).pack(pady=(12, 2))
+            font=("Segoe UI", 70)
+        ).pack(pady=(28, 2))
 
         ctk.CTkLabel(
             frame,
             text="الجمهورية الجزائرية الديمقراطية الشعبية",
+            font=("Segoe UI", 12, "bold"),
+            text_color="#E2E8F0"
+        ).pack()
+
+        ctk.CTkLabel(
+            frame, text="وزارة الصحة",
             font=("Segoe UI", 11),
-            text_color="#94A3B8"
+            text_color="#64748B"
+        ).pack(pady=(2, 10))
+
+        ctk.CTkLabel(
+            frame,
+            text="⚕  EPSP ES-SENIA",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#3B82F6"
         ).pack()
 
         ctk.CTkLabel(
             frame,
-            text="Gestionnaire de Reliquats de Congé Annuel",
-            font=("Segoe UI", 10),
-            text_color="#64748B"
+            text="Gestionnaire de Reliquats "
+                 "de Congé Annuel",
+            font=("Segoe UI", 9),
+            text_color="#475569"
         ).pack(pady=(2, 10))
 
-        # Barre de progression
         self.barre = ctk.CTkProgressBar(
             frame,
             mode="determinate",
             fg_color="#1E3A5F",
             progress_color="#2563EB",
-            height=4,
-            corner_radius=2)
+            height=4, corner_radius=2)
         self.barre.pack(
-            fill="x", padx=40, pady=(4, 8))
+            fill="x", padx=50, pady=(0, 6))
         self.barre.set(0)
 
-        # Version
-        self.lbl_status = ctk.CTkLabel(
+        self.lbl_ver = ctk.CTkLabel(
             frame,
-            text=f"Chargement…  {get_full_label()}",
+            text=get_full_label(),
             font=("Segoe UI", 9),
-            text_color="#475569")
-        self.lbl_status.pack()
+            text_color="#334155")
+        self.lbl_ver.pack()
 
-        ctk.CTkLabel(
-            frame,
-            text="COPYRIGHT ILINE TECH 2026 "
-                 "BY FERAK ALADDIN",
-            font=("Segoe UI", 8),
-            text_color="#1E3A5F"
-        ).pack(pady=(8, 0))
-
-    def _animer_entree(self):
-        """Fade-in progressif."""
-        if self._alpha < 1.0:
-            self._alpha = min(1.0, self._alpha + 0.08)
-            self.attributes("-alpha", self._alpha)
-            self.after(16, self._animer_entree)
+    def _fade(self, alpha: float, direction: str):
+        """Fade in/out via after() — thread-safe."""
+        if direction == "in":
+            alpha = min(1.0, alpha + 0.07)
+            self.attributes("-alpha", alpha)
+            if alpha < 1.0:
+                self.after(
+                    14,
+                    lambda: self._fade(
+                        alpha, "in"))
+            else:
+                # Démarrer progression barre
+                self.after(
+                    10,
+                    lambda: self._progres(0.0))
         else:
-            self._animer_progression()
+            alpha = max(0.0, alpha - 0.07)
+            self.attributes("-alpha", alpha)
+            if alpha > 0.0:
+                self.after(
+                    14,
+                    lambda: self._fade(
+                        alpha, "out"))
+            else:
+                self._terminer()
 
-    def _animer_progression(self, val=0.0):
-        """Barre de progression."""
+    def _progres(self, val: float):
+        """Progression barre via after()."""
         if val <= 1.0:
             self.barre.set(val)
-            pct = int(val * 100)
             msgs = {
-                0:  "Initialisation…",
-                25: "Chargement base de données…",
-                50: "Vérification intégrité…",
-                75: "Préparation interface…",
-                90: "Presque prêt…",
-                100:"Bienvenue !"
+                0.0:  "Initialisation…",
+                0.3:  "Chargement données…",
+                0.6:  "Vérification intégrité…",
+                0.85: "Préparation interface…",
+                1.0:  "Bienvenue !",
             }
-            for seuil in sorted(msgs.keys(),
-                                reverse=True):
-                if pct >= seuil:
-                    self.lbl_status.configure(
+            for seuil in sorted(
+                    msgs.keys(), reverse=True):
+                if val >= seuil:
+                    self.lbl_ver.configure(
                         text=f"{msgs[seuil]}  "
                              f"{get_full_label()}")
                     break
             self.after(
-                18,
-                lambda: self._animer_progression(
-                    val + 0.012))
+                20,
+                lambda: self._progres(
+                    round(val + 0.015, 3)))
         else:
-            self.after(400, self._animer_sortie)
-
-    def _animer_sortie(self, alpha=1.0):
-        """Fade-out progressif."""
-        if alpha > 0.0:
-            alpha = max(0.0, alpha - 0.08)
-            self.attributes("-alpha", alpha)
+            # Pause puis fade out
             self.after(
-                16,
-                lambda: self._animer_sortie(alpha))
-        else:
+                300,
+                lambda: self._fade(1.0, "out"))
+
+    def _terminer(self):
+        """Ferme le splash et appelle callback."""
+        try:
             self.destroy()
-            if self._callback:
-                self._callback()
+        except Exception:
+            pass
+        if self._callback:
+            # Callback via after sur le parent
+            # — garantit thread principal
+            try:
+                self._parent.after(
+                    10, self._callback)
+            except Exception:
+                pass
