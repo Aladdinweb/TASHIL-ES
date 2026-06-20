@@ -437,3 +437,107 @@ class AppPrincipale(ctk.CTkFrame):
 
     def rafraichir(self):
         pass
+
+    def _proposer_maj(self, info: dict):
+        from app.utils.updater import (
+            telecharger_et_remplacer)
+        tag     = info.get("tag", "")
+        url_exe = info.get("url_exe", "")
+        taille  = info.get("taille", 0)
+        taille_mb = round(taille / 1024 / 1024, 1)
+
+        if not url_exe:
+            messagebox.showerror(
+                "Erreur",
+                "Aucun .exe dans cette Release.\n"
+                "Téléchargez manuellement sur GitHub.")
+            return
+
+        rep = messagebox.askyesno(
+            f"🆕  Version {tag} disponible",
+            f"Version actuelle : v{get_version()}\n"
+            f"Nouvelle version : {tag}\n"
+            f"Taille : {taille_mb} MB\n\n"
+            "Télécharger et installer maintenant ?\n"
+            "(L'application redémarrera après.)")
+        if not rep:
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Téléchargement…")
+        dlg.configure(
+            fg_color=COULEURS["bg_principal"])
+        dlg.geometry("400x160")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.attributes("-topmost", True)
+        dlg.protocol("WM_DELETE_WINDOW",
+                     lambda: None)
+        dlg.update_idletasks()
+        x = (dlg.winfo_screenwidth()  - 400) // 2
+        y = (dlg.winfo_screenheight() - 160) // 2
+        dlg.geometry(f"400x160+{x}+{y}")
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"Téléchargement {tag}…",
+            font=POLICES["sous_titre"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(pady=(18, 8))
+
+        barre = ctk.CTkProgressBar(
+            dlg, mode="determinate",
+            fg_color=COULEURS["bg_champ"],
+            progress_color=COULEURS["accent_bleu"],
+            height=14, corner_radius=6)
+        barre.pack(fill="x", padx=30)
+        barre.set(0)
+
+        lbl = ctk.CTkLabel(
+            dlg, text="0 %",
+            font=POLICES["corps_bold"],
+            text_color=COULEURS["accent_bleu"])
+        lbl.pack(pady=6)
+
+        def _prog(pct):
+            self.after(0, lambda p=pct: (
+                barre.set(p / 100),
+                lbl.configure(text=f"{p} %")))
+
+        def _fin(ok, err):
+            self.after(0, lambda:
+                       self._fin_telechargement(
+                           dlg, ok, err))
+
+        telecharger_et_remplacer(
+            url_exe, _prog, _fin)
+
+    def _fin_telechargement(
+            self, dlg, ok: bool, err: str):
+        try:
+            dlg.destroy()
+        except Exception:
+            pass
+        if ok:
+            messagebox.showinfo(
+                "✅  Mise à jour réussie",
+                "Téléchargement terminé.\n"
+                "L'application va redémarrer.")
+            self.after(600, self._quitter_pour_maj)
+        else:
+            messagebox.showerror(
+                "❌  Échec",
+                f"Erreur : {err}\n\n"
+                "Téléchargez manuellement :\n"
+                "github.com/Aladdinweb/"
+                "epsp-conge-manager/releases")
+
+    def _quitter_pour_maj(self):
+        try:
+            from app.utils.database import (
+                faire_backup)
+            faire_backup("avant_maj")
+        except Exception:
+            pass
+        import os
+        os._exit(0)

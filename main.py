@@ -1,22 +1,13 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""
-Point d'entrée — EPSP ES-SENIA
-Architecture thread-safe, zéro deadlock.
-"""
+"""Point d'entrée — EPSP ES-SENIA — Fix écran noir"""
 import sys
 import os
 
 sys.path.insert(
     0, os.path.dirname(os.path.abspath(__file__)))
 
-import customtkinter as ctk
-
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
-
 
 def _init_db():
-    """Initialisation DB — appelé AVANT tkinter."""
     from app.utils.database import initialize_database
     from app.utils.migration import migrer
     initialize_database()
@@ -28,114 +19,85 @@ def _init_db():
         pass
 
 
-class AppRoot(ctk.CTk):
-    """
-    Fenêtre racine unique.
-    Ne bloque JAMAIS le thread principal tkinter.
-    """
+def main():
+    # 1. DB init AVANT tkinter
+    _init_db()
 
-    def __init__(self):
-        super().__init__()
+    import customtkinter as ctk
+    from app.utils.theme import COULEURS, DIMENSIONS
+    from app.utils.database import get_config
+    from app.utils.version import get_version
 
-        from app.utils.theme import COULEURS, DIMENSIONS
-        self._COULEURS   = COULEURS
-        self._DIMENSIONS = DIMENSIONS
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
 
-        w = DIMENSIONS["fenetre_w"]
-        h = DIMENSIONS["fenetre_h"]
-        self.update_idletasks()
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x  = (sw - w) // 2
-        y  = (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-        self.minsize(
-            DIMENSIONS["fenetre_min_w"],
-            DIMENSIONS["fenetre_min_h"])
-        self.configure(fg_color=COULEURS["bg_principal"])
-        self.title("EPSP ES-SENIA — Chargement…")
-        self.protocol("WM_DELETE_WINDOW",
-                      self._fermeture)
+    root = ctk.CTk()
 
-        # Masquer pendant splash
-        self.withdraw()
+    w = DIMENSIONS["fenetre_w"]
+    h = DIMENSIONS["fenetre_h"]
+    root.update_idletasks()
+    x = (root.winfo_screenwidth()  - w) // 2
+    y = (root.winfo_screenheight() - h) // 2
+    root.geometry(f"{w}x{h}+{x}+{y}")
+    root.minsize(
+        DIMENSIONS["fenetre_min_w"],
+        DIMENSIONS["fenetre_min_h"])
+    root.configure(fg_color=COULEURS["bg_principal"])
 
-        # Lancer splash IMMÉDIATEMENT
-        # (aucun I/O dans __init__)
-        self.after(50, self._afficher_splash)
+    poly = get_config("poly_nom") or "ES-SENIA"
+    root.title(
+        f"EPSP {poly} — "
+        f"Gestionnaire Congés v{get_version()}")
 
-    def _afficher_splash(self):
-        from app.views.splash import SplashScreen
-        SplashScreen(
-            self,
-            duree_ms=2400,
-            callback=self._apres_splash)
-
-    def _apres_splash(self):
-        """Appelé depuis splash — thread principal."""
-        self.deiconify()
-        self.update_idletasks()
-        self._demarrer()
-
-    def _demarrer(self):
-        from app.utils.database import get_config
-        if not get_config("activation_done"):
-            self._afficher_activation()
-        else:
-            self._afficher_app()
-
-    def _vider(self):
-        for w in self.winfo_children():
-            try:
-                w.destroy()
-            except Exception:
-                pass
-
-    def _afficher_activation(self):
-        self._vider()
-        from app.views.vue_activation import (
-            VueActivation)
-
-        def _apres(code, nom):
-            # Délai court — laisse tkinter respirer
-            self.after(200, self._afficher_app)
-
-        ecran = VueActivation(
-            self,
-            on_activation_complete=_apres)
-        ecran.pack(fill="both", expand=True)
-        self.update_idletasks()
-
-    def _afficher_app(self):
-        self._vider()
-        from app.utils.database import get_config
-        from app.utils.version import get_version
-        poly = get_config("poly_nom") or "ES-SENIA"
-        self.title(
-            f"EPSP {poly} — "
-            f"Gestionnaire Congés v{get_version()}")
-
-        from app.views.app_principale import (
-            AppPrincipale)
-        app = AppPrincipale(self)
-        app.pack(fill="both", expand=True)
-        # Force le rendu immédiat
-        self.update_idletasks()
-
-    def _fermeture(self):
+    def _fermeture():
         try:
             from app.utils.database import faire_backup
             faire_backup("fermeture")
         except Exception:
             pass
-        self.destroy()
+        root.destroy()
 
+    root.protocol("WM_DELETE_WINDOW", _fermeture)
 
-def main():
-    # DB init AVANT tkinter — pas de conflit
-    _init_db()
-    app = AppRoot()
-    app.mainloop()
+    # 2. Décider quelle vue afficher
+    activation_done = get_config("activation_done")
+
+    def _lancer_app():
+        """Vide root et charge AppPrincipale."""
+        for w_child in root.winfo_children():
+            try:
+                w_child.destroy()
+            except Exception:
+                pass
+        from app.views.app_principale import (
+            AppPrincipale)
+        frame = AppPrincipale(root)
+        frame.pack(fill="both", expand=True)
+        root.update_idletasks()
+
+    def _lancer_activation():
+        from app.views.vue_activation import (
+            VueActivation)
+
+        def _apres(code, nom):
+            root.title(
+                f"EPSP {nom} — "
+                f"Gestionnaire Congés "
+                f"v{get_version()}")
+            root.after(100, _lancer_app)
+
+        frame = VueActivation(
+            root,
+            on_activation_complete=_apres)
+        frame.pack(fill="both", expand=True)
+        root.update_idletasks()
+
+    if not activation_done:
+        root.after(100, _lancer_activation)
+    else:
+        root.after(100, _lancer_app)
+
+    root.mainloop()
 
 
 if __name__ == "__main__":
