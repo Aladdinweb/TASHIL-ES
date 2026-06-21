@@ -31,26 +31,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install customtkinter openpyxl pillow pyinstaller darkdetect packaging
 
-      - name: Get build number
+      - name: Get patch number
         id: build_num
         run: |
           $count = (git rev-list --count HEAD)
-          echo "BUILD_NUMBER=$count" >> $env:GITHUB_OUTPUT
-          Write-Host "Build: $count"
+          echo "PATCH=$count" >> $env:GITHUB_OUTPUT
+          Write-Host "Patch: $count"
 
-      - name: Inject version into source
+      - name: Inject version v1.1.PATCH
         run: |
-          $b = "${{ steps.build_num.outputs.BUILD_NUMBER }}"
-          $content = Get-Content app/utils/version.py -Raw
-          $content = $content -replace 'VERSION_BUILD = \d+', "VERSION_BUILD = $b"
-          Set-Content app/utils/version.py $content
-          Write-Host "Version: 1.0.$b"
+          $p = "${{ steps.build_num.outputs.PATCH }}"
+          $c = Get-Content app/utils/version.py -Raw
+          $c = $c -replace 'VERSION_BUILD = \d+', "VERSION_BUILD = $p"
+          Set-Content app/utils/version.py $c
+          Write-Host "Version: 1.1.$p"
 
       - name: Generate icon
         run: python app/assets/create_icon.py
         continue-on-error: true
 
-      - name: Verify spec file
+      - name: Verify spec
         run: |
           if (Test-Path "epsp_conge.spec") {
             Write-Host "spec OK"
@@ -61,8 +61,7 @@ jobs:
 
       - name: Build EXE
         run: |
-          pyinstaller epsp_conge.spec `
-            --clean --noconfirm --log-level WARN
+          pyinstaller epsp_conge.spec --clean --noconfirm --log-level WARN
 
       - name: Verify EXE
         run: |
@@ -74,18 +73,14 @@ jobs:
             exit 1
           }
 
-      - name: Decode signing certificate
+      - name: Decode certificate
         env:
           SIGNING_CERT_B64: ${{ secrets.SIGNING_CERT_B64 }}
         run: |
           if ("$env:SIGNING_CERT_B64" -ne "") {
-            $bytes = [Convert]::FromBase64String(
-              $env:SIGNING_CERT_B64)
-            [IO.File]::WriteAllBytes(
-              "signing_cert.pfx", $bytes)
+            $b = [Convert]::FromBase64String($env:SIGNING_CERT_B64)
+            [IO.File]::WriteAllBytes("signing_cert.pfx", $b)
             Write-Host "Certificate decoded"
-          } else {
-            Write-Host "No certificate - skipping"
           }
         continue-on-error: true
 
@@ -98,21 +93,13 @@ jobs:
               "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe",
               "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
             )
-            $signtool = $tools | Where-Object {
-              Test-Path $_} | Select-Object -First 1
-            if ($signtool) {
-              & $signtool sign `
-                /f "signing_cert.pfx" `
-                /p "$env:SIGNING_PASSWORD" `
-                /fd SHA256 `
-                /tr http://timestamp.digicert.com `
-                /td SHA256 `
+            $st = $tools | Where-Object {Test-Path $_} | Select-Object -First 1
+            if ($st) {
+              & $st sign /f "signing_cert.pfx" /p "$env:SIGNING_PASSWORD" `
+                /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
                 /d "EPSP ES-SENIA Gestionnaire Conges" `
-                /du "https://github.com/Aladdinweb/epsp-conge-manager" `
                 "dist\EPSP_CongeManager.exe"
               Write-Host "Signed OK"
-            } else {
-              Write-Host "signtool not found"
             }
             Remove-Item "signing_cert.pfx" -Force
           }
@@ -121,29 +108,30 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EPSP_CongeManager_Windows
+          name: EPSP_CongeManager_v1.1.${{ steps.build_num.outputs.PATCH }}
           path: dist/EPSP_CongeManager.exe
           retention-days: 30
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ steps.build_num.outputs.BUILD_NUMBER }}
-          name: "EPSP CongeManager v1.0.${{ steps.build_num.outputs.BUILD_NUMBER }}"
+          tag_name: v1.1.${{ steps.build_num.outputs.PATCH }}
+          name: "EPSP CongeManager v1.1.${{ steps.build_num.outputs.PATCH }}"
           body: |
-            ## EPSP ES-SENIA v1.0.${{ steps.build_num.outputs.BUILD_NUMBER }}
+            ## EPSP ES-SENIA v1.1.${{ steps.build_num.outputs.PATCH }}
             **COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN**
 
-            ### Nouveautés
-            - Dashboard refactorisé avec compteurs cliquables
-            - Alerte fin de congé (aujourd'hui/demain)
-            - Annuaire hiérarchique avec menu contextuel clic droit
+            ### Nouveautés v1.1.x
+            - Dashboard thread-safe (zéro écran noir)
+            - Onglets Congé et Reliquat séparés
+            - 18 services cliniques officiels EPSP
+            - Mise à jour automatique in-app
+            - Annuaire hiérarchique avec clic droit
             - Suppression multiple avec checkboxes
-            - Splash screen drapeau algérien animé
             - Maladie/Maternité sans déduction reliquat
-            - Version dynamique dans footer
+            - Bordereau/Tableau Service en maintenance
 
-            ### Installation
+            ### Installation Windows
             1. Télécharger `EPSP_CongeManager.exe`
             2. Placer dans `C:\EPSP\`
             3. Double-cliquer pour lancer

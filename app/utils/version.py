@@ -1,13 +1,12 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""Version sémantique — injectée par GitHub Actions CI/CD"""
+"""Version sémantique — EPSP ES-SENIA"""
 VERSION_MAJOR = 1
-VERSION_MINOR = 0
-VERSION_BUILD = 9  # Auto-incrémenté par CI
+VERSION_MINOR = 1
+VERSION_BUILD = 0  # Auto-incrémenté par GitHub Actions CI
 
 VERSION = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_BUILD}"
 VERSION_TAG = f"v{VERSION}"
 APP_NAME = "EPSP CongeManager"
-BUILD_DATE = "2026"
 
 
 def get_version() -> str:
@@ -19,4 +18,4 @@ def get_tag() -> str:
 
 
 def get_full_label() -> str:
-    return f"{APP_NAME} {VERSION_TAG}"
+    return f"{APP_NAME} v{VERSION}"
