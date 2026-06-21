@@ -188,6 +188,7 @@ class AppPrincipale(ctk.CTkFrame):
             except Exception:
                 pass
         self._vue_active = cle
+        self.update_idletasks()
 
     def _creer_vue(self, cle: str):
         from app.views.vue_dashboard import VueDashboard
