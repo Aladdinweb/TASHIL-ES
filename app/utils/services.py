@@ -61,3 +61,33 @@ def rang_grade(grade: str) -> int:
         return HIERARCHIE_GRADES.index(grade)
     except ValueError:
         return len(HIERARCHIE_GRADES)
+
+# Grades officiels EPSP
+GRADES = [
+    "Médecin",
+    "Médecin Spécialiste",
+    "Chirurgien Dentiste",
+    "Pharmacien",
+    "Biologiste",
+    "Psychologue",
+    "Manipulateur Radio",
+    "Infirmier Anesthésiste",
+    "Infirmière",
+    "Infirmier",
+    "Sage-Femme",
+    "Puéricultrice",
+    "Aide-Puéricultrice",
+    "ATS (Agent Technique de Santé)",
+    "Laborantine",
+    "Préparatrice en Pharmacie",
+    "Opticien",
+    "Assistante Médicale",
+    "Assistante Sociale",
+    "Aide Soignant",
+    "Administrateur (ADM)",
+    "Agent de Bureau",
+    "Agent de Sécurité (OP)",
+    "Ambulancier (OP)",
+    "Femme de Ménage (OP)",
+    "Autre",
+]
