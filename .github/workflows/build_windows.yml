@@ -1,5 +1,5 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-name: Build Windows EXE
+name: Build TASHIL Windows EXE
 
 on:
   push:
@@ -32,32 +32,23 @@ jobs:
           pip install customtkinter openpyxl pillow pyinstaller darkdetect packaging
 
       - name: Get patch number
-        id: build_num
+        id: patch
         run: |
-          $count = (git rev-list --count HEAD)
-          echo "PATCH=$count" >> $env:GITHUB_OUTPUT
-          Write-Host "Patch: $count"
+          $p = (git rev-list --count HEAD)
+          echo "PATCH=$p" >> $env:GITHUB_OUTPUT
+          Write-Host "Patch: $p"
 
       - name: Inject version v1.1.PATCH
         run: |
-          $p = "${{ steps.build_num.outputs.PATCH }}"
+          $p = "${{ steps.patch.outputs.PATCH }}"
           $c = Get-Content app/utils/version.py -Raw
           $c = $c -replace 'VERSION_BUILD = \d+', "VERSION_BUILD = $p"
           Set-Content app/utils/version.py $c
-          Write-Host "Version: 1.1.$p"
+          Write-Host "TASHIL v1.1.$p"
 
       - name: Generate icon
         run: python app/assets/create_icon.py
         continue-on-error: true
-
-      - name: Verify spec
-        run: |
-          if (Test-Path "epsp_conge.spec") {
-            Write-Host "spec OK"
-          } else {
-            Write-Error "spec NOT FOUND"
-            exit 1
-          }
 
       - name: Build EXE
         run: |
@@ -80,7 +71,6 @@ jobs:
           if ("$env:SIGNING_CERT_B64" -ne "") {
             $b = [Convert]::FromBase64String($env:SIGNING_CERT_B64)
             [IO.File]::WriteAllBytes("signing_cert.pfx", $b)
-            Write-Host "Certificate decoded"
           }
         continue-on-error: true
 
@@ -89,17 +79,15 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
           if (Test-Path "signing_cert.pfx") {
-            $tools = @(
+            $t = @(
               "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe",
               "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
-            )
-            $st = $tools | Where-Object {Test-Path $_} | Select-Object -First 1
-            if ($st) {
-              & $st sign /f "signing_cert.pfx" /p "$env:SIGNING_PASSWORD" `
+            ) | Where-Object {Test-Path $_} | Select-Object -First 1
+            if ($t) {
+              & $t sign /f "signing_cert.pfx" /p "$env:SIGNING_PASSWORD" `
                 /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
-                /d "EPSP ES-SENIA Gestionnaire Conges" `
+                /d "TASHIL Smart Health Management System" `
                 "dist\EPSP_CongeManager.exe"
-              Write-Host "Signed OK"
             }
             Remove-Item "signing_cert.pfx" -Force
           }
@@ -108,33 +96,33 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EPSP_CongeManager_v1.1.${{ steps.build_num.outputs.PATCH }}
+          name: TASHIL_v1.1.${{ steps.patch.outputs.PATCH }}
           path: dist/EPSP_CongeManager.exe
           retention-days: 30
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.${{ steps.build_num.outputs.PATCH }}
-          name: "EPSP CongeManager v1.1.${{ steps.build_num.outputs.PATCH }}"
+          tag_name: v1.1.${{ steps.patch.outputs.PATCH }}
+          name: "TASHIL v1.1.${{ steps.patch.outputs.PATCH }}"
           body: |
-            ## EPSP ES-SENIA v1.1.${{ steps.build_num.outputs.PATCH }}
-            **COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN**
+            ## TASHIL: Smart Health Management System
+            **v1.1.${{ steps.patch.outputs.PATCH }}**
+            *COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN*
 
-            ### Nouveautés v1.1.x
-            - Dashboard thread-safe (zéro écran noir)
-            - Onglets Congé et Reliquat séparés
-            - 18 services cliniques officiels EPSP
-            - Mise à jour automatique in-app
-            - Annuaire hiérarchique avec clic droit
-            - Suppression multiple avec checkboxes
-            - Maladie/Maternité sans déduction reliquat
-            - Bordereau/Tableau Service en maintenance
-
-            ### Installation Windows
+            ### Installation
             1. Télécharger `EPSP_CongeManager.exe`
-            2. Placer dans `C:\EPSP\`
+            2. Placer dans `C:\TASHIL\`
             3. Double-cliquer pour lancer
+
+            ### Fonctionnalités
+            - Dashboard TASHIL avec 4 tuiles cliquables
+            - 18 services cliniques EPSP
+            - Onglets Congé et Reliquat séparés
+            - FIFO déduction automatique
+            - Rollover 1er Mai
+            - Backup automatique SQLite
+            - Mise à jour automatique in-app
           draft: false
           prerelease: false
           files: dist/EPSP_CongeManager.exe

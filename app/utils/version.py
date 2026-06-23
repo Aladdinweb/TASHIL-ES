@@ -1,12 +1,17 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""Version sémantique — EPSP ES-SENIA"""
+"""Version sémantique — TASHIL"""
 VERSION_MAJOR = 1
 VERSION_MINOR = 1
-VERSION_BUILD = 0  # Auto-incrémenté par GitHub Actions CI
+VERSION_BUILD = 0  # Injecté par GitHub Actions
 
 VERSION = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_BUILD}"
 VERSION_TAG = f"v{VERSION}"
-APP_NAME = "EPSP CongeManager"
+
+try:
+    from app.config import APP_NAME, APP_TAGLINE
+except Exception:
+    APP_NAME    = "TASHIL"
+    APP_TAGLINE = "Smart Health Management System"
 
 
 def get_version() -> str:
