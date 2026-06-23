@@ -287,7 +287,7 @@ class VueDashboard(ctk.CTkFrame):
                  stats["en_conge"])),
             ("⚠  ALERTE FIN DE CONGÉ",
              str(nb_fin),
-             "Retours aujourd'hui / demain",
+             "LA REPRISE",
              COULEURS["accent_rouge"],
              lambda: self._popup_fin_conge(
                  stats["fin_conge"])),
@@ -729,7 +729,7 @@ class VueDashboard(ctk.CTkFrame):
 
         ctk.CTkLabel(
             pop,
-            text="🔔  Retours aujourd'hui / demain",
+            text="🔔  LA REPRISE",
             font=POLICES["sous_titre"],
             text_color=COULEURS["accent_rouge"]
         ).pack(padx=20, pady=(16, 8), anchor="w")

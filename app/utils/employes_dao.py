@@ -70,16 +70,21 @@ def lister_departements() -> list:
 
 def matricule_existe(matricule: str,
                      exclure_id=None) -> bool:
+    # Matricule vide = pas de doublon possible
+    if not matricule or not matricule.strip():
+        return False
     conn = get_connection()
     if exclure_id:
         row = conn.execute(
             "SELECT id FROM employes "
-            "WHERE matricule=? AND id!=?",
+            "WHERE matricule=? AND id!=? "
+            "AND matricule != ''",
             (matricule, exclure_id)).fetchone()
     else:
         row = conn.execute(
             "SELECT id FROM employes "
-            "WHERE matricule=?",
+            "WHERE matricule=? "
+            "AND matricule != ''",
             (matricule,)).fetchone()
     conn.close()
     return row is not None

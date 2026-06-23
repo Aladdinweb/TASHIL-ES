@@ -430,7 +430,7 @@ class DialogueEmploye(DialogueBase):
             annee_ent = None
 
         data = {
-            "matricule":       mat or f"AUTO-{nom[:4]}",
+            "matricule":       mat if mat else "",
             "nom":             nom,
             "prenom":          prenom,
             "grade":           grade,
