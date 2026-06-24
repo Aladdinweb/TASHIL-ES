@@ -1,5 +1,5 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-"""AppPrincipale TASHIL — place() uniquement"""
+"""AppPrincipale TASHIL — place() corrigé"""
 import customtkinter as ctk
 from tkinter import messagebox
 from app.utils.theme import COULEURS, POLICES, DIMENSIONS
@@ -10,6 +10,8 @@ try:
     from app.config import APP_NAME
 except Exception:
     APP_NAME = "TASHIL"
+
+SIDEBAR_W = 220
 
 
 class AppPrincipale(ctk.CTkFrame):
@@ -22,7 +24,6 @@ class AppPrincipale(ctk.CTkFrame):
         ("service",   "Tableau Service", "📋"),
         ("admin",     "Administration",  "⚙"),
     ]
-    SIDEBAR_W = DIMENSIONS["sidebar_w"]
 
     def __init__(self, parent, **kwargs):
         super().__init__(
@@ -32,69 +33,52 @@ class AppPrincipale(ctk.CTkFrame):
         self._vue_active  = ""
         self._boutons_nav = {}
         self._vues_cache  = {}
-
-        # place() interne
-        self._sidebar_frame = None
-        self._content_frame = None
-
+        self._sidebar     = None
+        self._content     = None
         self._construire()
         self._verifier_rollover_auto()
         self._naviguer("dashboard")
-
-        # Bind resize
         self.bind("<Configure>", self._on_resize)
 
     def _construire(self):
-        # Sidebar
-        self._sidebar_frame = ctk.CTkFrame(
+        # Sidebar — dimensions dans constructeur
+        self._sidebar = ctk.CTkFrame(
             self,
+            width=SIDEBAR_W,
             fg_color=COULEURS["bg_sidebar"],
             corner_radius=0)
-        self._sidebar_frame.place(
-            x=0, y=0,
-            relheight=1,
-            width=self.SIDEBAR_W)
+        self._sidebar.place(
+            x=0, y=0, relheight=1)
 
-        # Contenu
-        self._content_frame = ctk.CTkFrame(
+        # Zone contenu — dimensions dans constructeur
+        self._content = ctk.CTkFrame(
             self,
             fg_color=COULEURS["bg_principal"],
             corner_radius=0)
-        self._content_frame.place(
-            x=self.SIDEBAR_W, y=0,
-            relheight=1,
-            relwidth=1,
-            width=-self.SIDEBAR_W)
+        self._content.place(
+            x=SIDEBAR_W, y=0,
+            relwidth=1, relheight=1)
 
         self._construire_sidebar()
 
     def _on_resize(self, event):
-        """Maintient le layout place() au resize."""
         try:
-            if self._content_frame:
-                self._content_frame.place(
-                    x=self.SIDEBAR_W, y=0,
-                    relheight=1,
-                    relwidth=1,
-                    width=-self.SIDEBAR_W)
+            self._content.place(
+                x=SIDEBAR_W, y=0,
+                relwidth=1, relheight=1)
         except Exception:
             pass
 
     def _construire_sidebar(self):
-        sb = self._sidebar_frame
+        sb = self._sidebar
 
-        # Logo TASHIL
-        fl = ctk.CTkFrame(sb,
-                          fg_color="transparent")
-        fl.place(x=0, y=0,
-                 relwidth=1, height=90)
-
+        # Badge TASHIL — dimensions constructeur
         badge = ctk.CTkFrame(
-            fl,
+            sb,
+            width=44, height=44,
             fg_color=COULEURS["accent_bleu"],
-            corner_radius=8,
-            width=44, height=44)
-        badge.place(x=14, y=23)
+            corner_radius=8)
+        badge.place(x=14, y=20)
         badge.pack_propagate(False)
         ctk.CTkLabel(
             badge, text="T",
@@ -103,57 +87,59 @@ class AppPrincipale(ctk.CTkFrame):
         ).place(relx=0.5, rely=0.5,
                 anchor="center")
 
-        ctk.CTkLabel(
-            fl,
-            text=f"🇩🇿  {APP_NAME}",
-            font=POLICES["titre_app"],
-            text_color=COULEURS["texte_principal"]
-        ).place(x=68, y=24)
-
+        # Nom app
         poly = get_config("poly_nom") or "ES-SENIA"
         short = (poly[:16] + "…"
                  if len(poly) > 16 else poly)
+
         ctk.CTkLabel(
-            fl, text=short,
+            sb,
+            text=f"🇩🇿  {APP_NAME}",
+            font=POLICES["titre_app"],
+            text_color=COULEURS["texte_principal"]
+        ).place(x=68, y=22)
+
+        ctk.CTkLabel(
+            sb, text=short,
             font=POLICES["petit"],
             text_color=COULEURS["texte_secondaire"]
-        ).place(x=68, y=46)
+        ).place(x=68, y=44)
 
-        # Séparateur
-        sep = ctk.CTkFrame(
-            sb, fg_color=COULEURS["bordure"],
-            height=1)
-        sep.place(x=16, y=94,
-                  relwidth=1, width=-32)
+        # Séparateur — frame avec hauteur constructeur
+        sep1 = ctk.CTkFrame(
+            sb,
+            height=1,
+            fg_color=COULEURS["bordure"])
+        sep1.place(x=14, y=78,
+                   relwidth=1, width=-28)
 
-        # Label NAVIGATION
         ctk.CTkLabel(
             sb, text="NAVIGATION",
             font=("Segoe UI", 9, "bold"),
             text_color=COULEURS["texte_discret"]
-        ).place(x=20, y=108)
+        ).place(x=20, y=90)
 
         # Boutons navigation
-        y_pos = 130
+        y_pos = 112
         for cle, libelle, icone in self.ONGLETS:
             if cle in ("service", "admin"):
-                sep2 = ctk.CTkFrame(
+                sep = ctk.CTkFrame(
                     sb,
-                    fg_color=COULEURS["bordure"],
-                    height=1)
-                sep2.place(x=16, y=y_pos,
-                           relwidth=1, width=-32)
+                    height=1,
+                    fg_color=COULEURS["bordure"])
+                sep.place(x=14, y=y_pos,
+                          relwidth=1, width=-28)
                 y_pos += 10
 
             btn = ctk.CTkButton(
                 sb,
+                height=40,
                 text=f"  {icone}   {libelle}",
                 anchor="w",
                 fg_color="transparent",
                 hover_color=COULEURS["bg_hover"],
                 text_color=COULEURS["sidebar_inact_txt"],
                 font=POLICES["nav"],
-                height=40,
                 corner_radius=8,
                 command=lambda c=cle:
                     self._naviguer(c))
@@ -162,39 +148,39 @@ class AppPrincipale(ctk.CTkFrame):
             self._boutons_nav[cle] = btn
             y_pos += 46
 
-        # Pied sidebar
-        fp = ctk.CTkFrame(
-            sb, fg_color="transparent")
-        fp.place(x=0, rely=1.0,
-                 relwidth=1, height=90,
-                 y=-90)
-
-        ctk.CTkFrame(
-            fp, fg_color=COULEURS["bordure"],
-            height=1
-        ).place(x=16, y=0,
-                relwidth=1, width=-32)
+        # Pied sidebar — bouton MAJ
+        sep_pied = ctk.CTkFrame(
+            sb,
+            height=1,
+            fg_color=COULEURS["bordure"])
+        sep_pied.place(x=14, rely=1.0,
+                       relwidth=1, width=-28,
+                       y=-82)
 
         self.btn_maj = ctk.CTkButton(
-            fp,
+            sb,
+            height=28,
             text="🔄  Vérifier les mises à jour",
             fg_color="transparent",
             hover_color=COULEURS["bg_hover"],
             text_color=COULEURS["texte_discret"],
             font=("Segoe UI", 9),
-            height=26, corner_radius=6,
+            corner_radius=6,
             command=self._verifier_maj)
-        self.btn_maj.place(x=8, y=10,
-                           relwidth=1, width=-16)
+        self.btn_maj.place(
+            x=8, rely=1.0,
+            relwidth=1, width=-16,
+            y=-68)
 
         ctk.CTkLabel(
-            fp,
+            sb,
             text=f"v{get_version()}  •  "
                  "ILINE TECH 2026",
             font=("Segoe UI", 8),
             text_color=COULEURS["texte_discret"],
             justify="center"
-        ).place(relx=0.5, y=44, anchor="n")
+        ).place(relx=0.5, rely=1.0,
+                anchor="s", y=-10)
 
     # ── Navigation ────────────────────────────
     def _naviguer(self, cle: str):
@@ -212,6 +198,7 @@ class AppPrincipale(ctk.CTkFrame):
                         fg_color="transparent",
                         text_color=COULEURS["sidebar_inact_txt"])
 
+        # Masquer vue précédente
         if (self._vue_active and
                 self._vue_active in self._vues_cache):
             try:
@@ -220,30 +207,32 @@ class AppPrincipale(ctk.CTkFrame):
             except Exception:
                 pass
 
+        # Créer ou afficher vue cible
         if cle not in self._vues_cache:
             try:
                 vue = self._creer_vue(cle)
                 vue.place(x=0, y=0,
-                          relwidth=1, relheight=1,
-                          in_=self._content_frame)
+                          relwidth=1, relheight=1)
                 self._vues_cache[cle] = vue
-            except Exception as ex:
+            except Exception:
                 import traceback
-                print(f"[ERR vue {cle}] "
+                print(f"[ERR {cle}] "
                       f"{traceback.format_exc()}")
                 return
         else:
             self._vues_cache[cle].place(
                 x=0, y=0,
-                relwidth=1, relheight=1,
-                in_=self._content_frame)
+                relwidth=1, relheight=1)
             try:
                 self._vues_cache[cle].rafraichir()
             except Exception:
                 pass
 
         self._vue_active = cle
-        self._content_frame.update_idletasks()
+        try:
+            self._content.update_idletasks()
+        except Exception:
+            pass
 
     def _creer_vue(self, cle: str):
         from app.views.vue_dashboard import (
@@ -271,9 +260,8 @@ class AppPrincipale(ctk.CTkFrame):
         }
         cls = vues.get(cle)
         if not cls:
-            raise ValueError(
-                f"Vue inconnue: {cle}")
-        return cls(self._content_frame)
+            raise ValueError(f"Vue inconnue: {cle}")
+        return cls(self._content)
 
     def _verifier_rollover_auto(self):
         try:
@@ -302,14 +290,12 @@ class AppPrincipale(ctk.CTkFrame):
                 self.btn_maj.configure(
                     state="normal",
                     text="🔄  Vérifier les mises à jour"))
-
             if not info:
                 self.after(0, lambda:
                     messagebox.showwarning(
                         "Mise à jour",
-                        "Pas de connexion internet."))
+                        "Pas de connexion."))
                 return
-
             tag = info.get("tag", "")
             if version_plus_recente(tag):
                 self.after(0, lambda:
@@ -318,8 +304,7 @@ class AppPrincipale(ctk.CTkFrame):
                 self.after(0, lambda:
                     messagebox.showinfo(
                         "✅  À jour",
-                        f"Version actuelle : "
-                        f"v{get_version()}\n"
+                        f"Version : v{get_version()}\n"
                         f"Distante : {tag}"))
 
         verifier_en_arriere_plan(_cb)
@@ -330,8 +315,8 @@ class AppPrincipale(ctk.CTkFrame):
 
         tag      = info.get("tag", "")
         url_exe  = info.get("url_exe", "")
-        taille   = info.get("taille", 0)
-        taille_mb = round(taille / 1024 / 1024, 1)
+        taille_mb = round(
+            info.get("taille", 0) / 1024 / 1024, 1)
 
         if not url_exe:
             messagebox.showerror(
@@ -347,16 +332,22 @@ class AppPrincipale(ctk.CTkFrame):
         if not rep:
             return
 
+        # Fenêtre progression
         dlg = ctk.CTkToplevel(self)
-        dlg.title("Téléchargement…")
+        dlg.title("Mise à jour…")
         dlg.configure(
             fg_color=COULEURS["bg_principal"])
-        dlg.geometry("400x150")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.attributes("-topmost", True)
         dlg.protocol("WM_DELETE_WINDOW",
                      lambda: None)
+
+        w, h = 400, 150
+        dlg.update_idletasks()
+        x = (dlg.winfo_screenwidth()  - w) // 2
+        y = (dlg.winfo_screenheight() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
 
         ctk.CTkLabel(
             dlg,
@@ -366,10 +357,12 @@ class AppPrincipale(ctk.CTkFrame):
         ).place(relx=0.5, y=20, anchor="n")
 
         barre = ctk.CTkProgressBar(
-            dlg, mode="determinate",
+            dlg,
+            mode="determinate",
             fg_color=COULEURS["bg_champ"],
             progress_color=COULEURS["accent_bleu"],
-            height=14, corner_radius=6)
+            height=14,
+            corner_radius=6)
         barre.place(x=24, y=60,
                     relwidth=1, width=-48)
         barre.set(0)
@@ -400,7 +393,6 @@ class AppPrincipale(ctk.CTkFrame):
         if ok:
             messagebox.showinfo(
                 "✅  Mise à jour",
-                "Téléchargement terminé.\n"
                 "L'application va redémarrer.")
             self.after(600, self._quitter_maj)
         else:
