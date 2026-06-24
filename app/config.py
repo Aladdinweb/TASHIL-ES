@@ -4,23 +4,37 @@ Configuration centralisée — TASHIL
 Smart Health Management System
 """
 
+# ── Identité de marque ────────────────────────
 APP_NAME        = "TASHIL"
 APP_TAGLINE     = "Smart Health Management System"
 APP_FULL_NAME   = f"{APP_NAME}: {APP_TAGLINE}"
 APP_AUTHOR      = "ILINE TECH — FERAK ALADDIN"
 APP_YEAR        = "2026"
-APP_GITHUB      = "Aladdinweb/epsp-conge-manager"
+APP_GITHUB_REPO = "Aladdinweb/epsp-conge-manager"
+APP_GITHUB_API  = (
+    "https://api.github.com/repos/"
+    "Aladdinweb/epsp-conge-manager"
+    "/releases/latest"
+)
 
-# Contexte institutionnel
-INSTITUTION     = "EPSP"
-MINISTERE       = "وزارة الصحة"
-REPUBLIQUE      = "الجمهورية الجزائرية الديمقراطية الشعبية"
+# ── Identité institutionnelle ─────────────────
+INSTITUTION  = "EPSP"
+MINISTERE_AR = "وزارة الصحة"
+REPUBLIQUE_AR = (
+    "الجمهورية الجزائرية الديمقراطية الشعبية")
+MINISTERE_FR = "Ministère de la Santé"
 
-# Fenêtre
+# ── Template titre fenêtre ────────────────────
 WINDOW_TITLE_TEMPLATE = (
     "{app} — {poly} — v{version}")
 
-# Services cliniques officiels (18)
+# ── Smart Hub réseau ──────────────────────────
+SMART_HUB_HOST    = "0.0.0.0"   # Écoute toutes interfaces
+SMART_HUB_PORT    = 7890         # Port dédié TASHIL
+SMART_HUB_SECRET  = "TASHIL2026" # Clé d'appairage
+SMART_HUB_TIMEOUT = 30           # Secondes timeout
+
+# ── Services cliniques officiels (20) ─────────
 SERVICES_CLINIQUES = [
     "Urgences",
     "Consultation",
@@ -44,7 +58,7 @@ SERVICES_CLINIQUES = [
     "Autre",
 ]
 
-# Hiérarchie administrative
+# ── Hiérarchie administrative ─────────────────
 HIERARCHIE_GRADES = [
     "Médecin Coordinateur",
     "Médecin Chef",
@@ -76,7 +90,10 @@ HIERARCHIE_GRADES = [
     "Autre",
 ]
 
-# Postes suggérés par grade
+# Alias
+GRADES = HIERARCHIE_GRADES
+
+# ── Postes par grade ──────────────────────────
 POSTES_PAR_GRADE = {
     "Médecin": [
         "Généraliste",
@@ -116,4 +133,29 @@ POSTES_PAR_GRADE = {
         "Responsable Administratif",
         "Secrétaire de Direction",
     ],
+    "Sage-Femme": [
+        "Sage-Femme",
+        "Sage-Femme Principale",
+        "Sage-Femme Chef",
+    ],
 }
+
+# ── Catégories congés (Bordereau) ─────────────
+CATEGORIES_BORDEREAU = [
+    ("CONGE_ANNUEL",
+     "CONGE ANNUEL"),
+    ("CERTIFICAT_MEDICAL_ARRET",
+     "CERTIFICAT MEDICAL D'ARRET DE TRAVAIL"),
+    ("CERTIFICAT_MEDICAL_REPRISE",
+     "CERTIFICAT MEDICAL DE REPRISE"),
+    ("DEMANDE_3_JOURS_NAISSANCE",
+     "DEMANDE DE 3 JOURS DE NAISSANCE"),
+    ("DEMANDE_ANNULATION_CONGE",
+     "DEMANDE D'ANNULATION DE CONGE"),
+]
+
+# ── Types de congé Tableau de Service ─────────
+TYPES_SERVICE = [
+    "Matin", "Soir", "Nuit",
+    "Garde", "Repos", "Congé", "Absent",
+]
