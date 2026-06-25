@@ -1,215 +1,264 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
-import sys, os, traceback
-sys.path.insert(
-    0, os.path.dirname(os.path.abspath(__file__)))
+import sys
+import os
 
-# ── DB init avant tkinter ─────────────────────
+# ── Crash dump AVANT tout import ─────────────
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_LOG_PATH  = os.path.join(_BASE_DIR, "tashil_boot_error.txt")
+
+def _crash_dump(msg: str):
+    try:
+        with open(_LOG_PATH, "w",
+                  encoding="utf-8") as f:
+            f.write(msg)
+    except Exception:
+        pass
+
+sys.path.insert(0, _BASE_DIR)
+
+# ── Tous les imports dans try/except ─────────
 try:
+    import traceback
+    import threading
+
+    # DB
     from app.utils.database import (
         initialize_database, get_config)
     from app.utils.migration import migrer
     initialize_database()
     migrer()
     try:
-        from app.utils.migration import migrer_services
+        from app.utils.migration import (
+            migrer_services)
         migrer_services()
     except Exception:
         pass
-except Exception as e:
-    print(f"[FATAL DB] {e}")
-    sys.exit(1)
 
-# ── Config & version ──────────────────────────
-try:
-    from app.config import APP_FULL_NAME
-    from app.utils.version import (
-        get_version, get_window_title,
-        get_full_label)
-except Exception:
-    APP_FULL_NAME = "TASHIL"
-    def get_version():          return "1.1.0"
-    def get_window_title(p=""): return f"TASHIL — {p}"
-    def get_full_label():       return "TASHIL v1.1.0"
+    # Config/version avec fallback
+    try:
+        from app.config import APP_FULL_NAME
+    except Exception:
+        APP_FULL_NAME = "TASHIL"
+    try:
+        from app.utils.version import (
+            get_version, get_window_title,
+            get_full_label)
+    except Exception:
+        def get_version():           return "1.1.0"
+        def get_window_title(p=""): return f"TASHIL — {p}"
+        def get_full_label():        return "TASHIL v1.1.0"
 
-# ── Tkinter ───────────────────────────────────
-try:
+    # Tkinter
     import customtkinter as ctk
     from app.utils.theme import COULEURS, DIMENSIONS
-except Exception as e:
-    print(f"[FATAL IMPORT] {e}")
+
+except Exception as _boot_err:
+    _crash_dump(
+        f"BOOT ERROR\n\n"
+        f"{traceback.format_exc() if 'traceback' in dir() else str(_boot_err)}")
     sys.exit(1)
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+# ── Fenêtre root ──────────────────────────────
+try:
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
 
-root = ctk.CTk()
-W = DIMENSIONS["fenetre_w"]
-H = DIMENSIONS["fenetre_h"]
-root.update_idletasks()
-x = (root.winfo_screenwidth()  - W) // 2
-y = (root.winfo_screenheight() - H) // 2
-root.geometry(f"{W}x{H}+{x}+{y}")
-root.minsize(DIMENSIONS["fenetre_min_w"],
-             DIMENSIONS["fenetre_min_h"])
-root.configure(fg_color=COULEURS["bg_principal"])
+    root = ctk.CTk()
+    W = DIMENSIONS["fenetre_w"]
+    H = DIMENSIONS["fenetre_h"]
+    root.update_idletasks()
+    sw = root.winfo_screenwidth()
+    sh = root.winfo_screenheight()
+    root.geometry(
+        f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
+    root.minsize(
+        DIMENSIONS["fenetre_min_w"],
+        DIMENSIONS["fenetre_min_h"])
+    root.configure(
+        fg_color=COULEURS["bg_principal"])
+    poly = get_config("poly_nom") or "ES-SENIA"
+    root.title(get_window_title(poly))
+    root.protocol(
+        "WM_DELETE_WINDOW",
+        lambda: (
+            _backup_safe(),
+            root.destroy()))
 
-poly = get_config("poly_nom") or "ES-SENIA"
-root.title(get_window_title(poly))
+except Exception:
+    _crash_dump(
+        f"ROOT INIT ERROR\n\n"
+        f"{traceback.format_exc()}")
+    sys.exit(1)
 
 
-def _fermeture():
+def _backup_safe():
     try:
         from app.utils.database import faire_backup
         faire_backup("fermeture")
     except Exception:
         pass
-    root.destroy()
 
 
-root.protocol("WM_DELETE_WINDOW", _fermeture)
+# ── Erreur visible dans fenêtre ──────────────
+def _afficher_erreur(msg: str):
+    _crash_dump(f"RUNTIME ERROR\n\n{msg}")
+    try:
+        for w in root.winfo_children():
+            try:
+                w.destroy()
+            except Exception:
+                pass
+        f = ctk.CTkFrame(
+            root, fg_color="#0D0808",
+            corner_radius=0)
+        f.place(x=0, y=0,
+                relwidth=1, relheight=1)
+        ctk.CTkLabel(
+            f, text="⚠  Erreur TASHIL",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#EF4444"
+        ).place(relx=0.5, rely=0.15,
+                anchor="center")
+        ctk.CTkLabel(
+            f, text=str(msg)[:700],
+            font=("Courier", 9),
+            text_color="#FCA5A5",
+            wraplength=680, justify="left"
+        ).place(relx=0.5, rely=0.52,
+                anchor="center")
+        ctk.CTkLabel(
+            f,
+            text=f"Détails : {_LOG_PATH}",
+            font=("Segoe UI", 8),
+            text_color="#64748B"
+        ).place(relx=0.5, rely=0.75,
+                anchor="center")
+        ctk.CTkButton(
+            f, text="Quitter",
+            fg_color="#DC2626",
+            hover_color="#991B1B",
+            command=root.destroy,
+            width=130, height=38,
+            corner_radius=6
+        ).place(relx=0.5, rely=0.86,
+                anchor="center")
+    except Exception:
+        pass
 
 
-# ── Splash minimal ────────────────────────────
-class SplashTASHIL(ctk.CTkToplevel):
-    def __init__(self, parent, callback=None):
-        super().__init__(parent)
-        self._cb     = callback
-        self._parent = parent
-        self.overrideredirect(True)
-        self.attributes("-topmost", True)
-        self.attributes("-alpha", 0.0)
-        self.configure(fg_color="#060D1A")
-        self.resizable(False, False)
-        w, h = 480, 300
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
-        self.geometry(
-            f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
-        self._build()
-        self.after(20, self._fade_in)
+# ── Splash ────────────────────────────────────
+def _build_splash():
+    try:
+        sp = ctk.CTkToplevel(root)
+        sp.overrideredirect(True)
+        sp.attributes("-topmost", True)
+        sp.attributes("-alpha", 0.0)
+        sp.configure(fg_color="#060D1A")
+        sp.resizable(False, False)
+        sw2 = root.winfo_screenwidth()
+        sh2 = root.winfo_screenheight()
+        w, h = 460, 280
+        sp.geometry(
+            f"{w}x{h}+{(sw2-w)//2}"
+            f"+{(sh2-h)//2}")
 
-    def _build(self):
         fond = ctk.CTkFrame(
-            self, fg_color="#060D1A",
+            sp, fg_color="#060D1A",
             corner_radius=0)
         fond.place(x=0, y=0,
                    relwidth=1, relheight=1)
 
         ctk.CTkLabel(
             fond, text="⚕  TASHIL",
-            font=("Segoe UI", 32, "bold"),
+            font=("Segoe UI", 30, "bold"),
             text_color="#3B82F6"
-        ).place(relx=0.5, y=60, anchor="n")
+        ).place(relx=0.5, y=40, anchor="n")
 
         ctk.CTkLabel(
             fond,
             text="Smart Health Management System",
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 10),
             text_color="#64748B"
-        ).place(relx=0.5, y=106, anchor="n")
+        ).place(relx=0.5, y=84, anchor="n")
 
         ctk.CTkLabel(
             fond, text="🇩🇿",
-            font=("Segoe UI", 40)
-        ).place(relx=0.5, y=140, anchor="n")
+            font=("Segoe UI", 36)
+        ).place(relx=0.5, y=110, anchor="n")
 
         ctk.CTkLabel(
             fond,
-            text="الجمهورية الجزائرية الديمقراطية الشعبية",
+            text="وزارة الصحة  —  "
+                 "الجمهورية الجزائرية",
             font=("Segoe UI", 10),
             text_color="#94A3B8"
-        ).place(relx=0.5, y=192, anchor="n")
+        ).place(relx=0.5, y=158, anchor="n")
 
-        self.barre = ctk.CTkProgressBar(
+        barre = ctk.CTkProgressBar(
             fond, mode="determinate",
             fg_color="#0F1E35",
             progress_color="#2563EB",
             height=4, corner_radius=2)
-        self.barre.place(x=50, y=232,
-                         relwidth=1, width=-100)
-        self.barre.set(0)
+        barre.place(x=50, y=196,
+                    relwidth=1, width=-100)
+        barre.set(0)
 
-        self.lbl = ctk.CTkLabel(
+        lbl = ctk.CTkLabel(
             fond, text=get_full_label(),
             font=("Segoe UI", 9),
             text_color="#334155")
-        self.lbl.place(relx=0.5, y=246,
-                       anchor="n")
+        lbl.place(relx=0.5, y=210, anchor="n")
 
-    def _fade_in(self, a=0.0):
-        a = min(1.0, a + 0.08)
-        self.attributes("-alpha", a)
-        if a < 1.0:
-            self.after(14,
-                       lambda: self._fade_in(a))
-        else:
-            self.after(10, self._progress)
+        ctk.CTkLabel(
+            fond,
+            text="ILINE TECH 2026 — "
+                 "FERAK ALADDIN",
+            font=("Segoe UI", 7),
+            text_color="#1E293B"
+        ).place(relx=0.5, y=256, anchor="n")
 
-    def _progress(self, v=0.0):
-        if v <= 1.0:
-            self.barre.set(v)
-            self.after(
-                16,
-                lambda: self._progress(
-                    round(v + 0.015, 3)))
-        else:
-            self.after(200, self._fade_out)
+        def fade_in(a=0.0):
+            a = min(1.0, a + 0.07)
+            sp.attributes("-alpha", a)
+            if a < 1.0:
+                sp.after(15,
+                         lambda: fade_in(a))
+            else:
+                sp.after(10,
+                         lambda: progress(0.0))
 
-    def _fade_out(self, a=1.0):
-        a = max(0.0, a - 0.08)
-        self.attributes("-alpha", a)
-        if a > 0.0:
-            self.after(14,
-                       lambda: self._fade_out(a))
-        else:
-            try:
-                self.destroy()
-            except Exception:
-                pass
-            if self._cb:
+        def progress(v=0.0):
+            if v <= 1.0:
+                barre.set(v)
+                lbl.configure(
+                    text=f"Chargement…  "
+                         f"{get_full_label()}")
+                sp.after(
+                    16,
+                    lambda: progress(
+                        round(v + 0.014, 3)))
+            else:
+                sp.after(200,
+                         lambda: fade_out(1.0))
+
+        def fade_out(a=1.0):
+            a = max(0.0, a - 0.07)
+            sp.attributes("-alpha", a)
+            if a > 0.0:
+                sp.after(15,
+                         lambda: fade_out(a))
+            else:
                 try:
-                    self._parent.after(
-                        30, self._cb)
+                    sp.destroy()
                 except Exception:
                     pass
+                root.after(30, _apres_splash)
 
+        sp.after(10, lambda: fade_in(0.0))
 
-# ── Erreur visible ────────────────────────────
-def _afficher_erreur(msg: str):
-    for w in root.winfo_children():
-        try:
-            w.destroy()
-        except Exception:
-            pass
-    f = ctk.CTkFrame(
-        root, fg_color="#0D0808",
-        corner_radius=0)
-    f.place(x=0, y=0, relwidth=1, relheight=1)
-
-    ctk.CTkLabel(
-        f, text="⚠  Erreur TASHIL",
-        font=("Segoe UI", 18, "bold"),
-        text_color="#EF4444"
-    ).place(relx=0.5, rely=0.18,
-            anchor="center")
-
-    ctk.CTkLabel(
-        f, text=str(msg)[:800],
-        font=("Courier", 9),
-        text_color="#FCA5A5",
-        wraplength=680, justify="left"
-    ).place(relx=0.5, rely=0.52,
-            anchor="center")
-
-    ctk.CTkButton(
-        f, text="Quitter",
-        fg_color="#DC2626",
-        hover_color="#991B1B",
-        command=root.destroy,
-        width=130, height=38,
-        corner_radius=6
-    ).place(relx=0.5, rely=0.84,
-            anchor="center")
+    except Exception:
+        # Splash raté → lancer app quand même
+        root.after(100, _apres_splash)
 
 
 # ── Lancement app ─────────────────────────────
@@ -227,9 +276,7 @@ def _lancer_app():
                     relwidth=1, relheight=1)
         root.update_idletasks()
     except Exception:
-        err = traceback.format_exc()
-        print(f"[FATAL APP]\n{err}")
-        _afficher_erreur(err)
+        _afficher_erreur(traceback.format_exc())
 
 
 def _lancer_activation():
@@ -253,66 +300,50 @@ def _lancer_activation():
                     relwidth=1, relheight=1)
         root.update_idletasks()
     except Exception:
-        err = traceback.format_exc()
-        print(f"[FATAL ACTIVATION]\n{err}")
-        _afficher_erreur(err)
+        _afficher_erreur(traceback.format_exc())
 
 
 def _apres_splash():
-    root.deiconify()
-    root.update_idletasks()
-    if get_config("activation_done"):
-        _lancer_app()
-    else:
-        _lancer_activation()
+    try:
+        root.deiconify()
+        root.update_idletasks()
+        if get_config("activation_done"):
+            _lancer_app()
+        else:
+            _lancer_activation()
+    except Exception:
+        _afficher_erreur(traceback.format_exc())
 
 
-# ── Smart Hub — daemon non bloquant ──────────
-def _demarrer_smart_hub():
-    """Socket serveur optionnel — jamais bloquant."""
+# ── Smart Hub daemon (optionnel) ──────────────
+def _hub():
     try:
         import socket
-        import json
-        import base64
-        import datetime
-
-        srv = socket.socket(
-            socket.AF_INET,
-            socket.SOCK_STREAM)
-        srv.setsockopt(
+        s = socket.socket()
+        s.setsockopt(
             socket.SOL_SOCKET,
             socket.SO_REUSEADDR, 1)
-        srv.settimeout(1.0)
-        srv.bind(("0.0.0.0", 7890))
-        srv.listen(3)
-        print("[SmartHub] Actif sur port 7890")
-
+        s.settimeout(1.0)
+        s.bind(("0.0.0.0", 7890))
+        s.listen(3)
         while True:
             try:
-                conn, addr = srv.accept()
-                conn.close()
+                c, _ = s.accept()
+                c.close()
             except socket.timeout:
                 continue
             except Exception:
                 break
-        srv.close()
-    except Exception as ex:
-        # Non bloquant — l'app démarre quand même
-        print(f"[SmartHub] Non disponible: {ex}")
+        s.close()
+    except Exception:
+        pass  # Non bloquant
 
 
-import threading
 threading.Thread(
-    target=_demarrer_smart_hub,
-    daemon=True,
-    name="SmartHub"
-).start()
+    target=_hub, daemon=True,
+    name="SmartHub").start()
 
 # ── Démarrage ─────────────────────────────────
 root.withdraw()
-root.after(
-    50,
-    lambda: SplashTASHIL(
-        root, callback=_apres_splash))
-
+root.after(50, _build_splash)
 root.mainloop()

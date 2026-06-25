@@ -426,3 +426,20 @@ class VueEmployes(ctk.CTkFrame):
             self._filtrer()
         except Exception:
             pass
+
+# Patch refresh interception
+_orig_rafraichir = VueEmployes.rafraichir
+def _safe_rafraichir(self):
+    try:
+        import customtkinter as ctk
+        for w in self.winfo_toplevel().winfo_children():
+            if isinstance(w, ctk.CTkToplevel):
+                if w.winfo_exists():
+                    return
+    except Exception:
+        pass
+    try:
+        self._filtrer()
+    except Exception:
+        pass
+VueEmployes.rafraichir = _safe_rafraichir
