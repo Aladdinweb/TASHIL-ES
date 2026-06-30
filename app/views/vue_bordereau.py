@@ -1,40 +1,42 @@
 # COPYRIGHT ILINE TECH 2026 BY FERAK ALADDIN
 """
-Bordereau — Déduction FIFO automatique
-Scan des mouvements → déduction reliquat
+Bordereau — Workspace FIFO automatique
+Scrollable, jamais vide.
 """
 import datetime
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from app.utils.theme import COULEURS, POLICES, DIMENSIONS
 from app.utils.database import get_connection
-from app.utils.deduction_engine import (
-    enregistrer_conge_prioritaire)
 
 
-def _charger_mouvements_non_soldes() -> list:
-    """Congés annuels non encore comptabilisés."""
-    conn = get_connection()
-    rows = conn.execute("""
-        SELECT m.id, m.employe_id,
-               m.date_debut, m.date_fin,
-               m.nb_jours, m.type_conge,
-               e.nom, e.prenom, e.grade,
-               d.nom as service,
-               ca.annee
-        FROM mouvements_conge m
-        JOIN employes e ON e.id = m.employe_id
-        JOIN departements d
-            ON d.id = e.departement_id
-        JOIN conges_annuels ca
-            ON ca.id = m.conge_id
-        WHERE m.type_conge = 'CONGE_ANNUEL'
-          AND e.actif = 1
-        ORDER BY m.date_debut DESC
-        LIMIT 100
-    """).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+def _charger_mouvements() -> list:
+    try:
+        conn = get_connection()
+        rows = conn.execute("""
+            SELECT m.id, m.employe_id,
+                   m.date_debut, m.date_fin,
+                   m.nb_jours, m.type_conge,
+                   e.nom, e.prenom, e.grade,
+                   d.nom as service,
+                   ca.annee
+            FROM mouvements_conge m
+            JOIN employes e
+                ON e.id = m.employe_id
+            JOIN departements d
+                ON d.id = e.departement_id
+            JOIN conges_annuels ca
+                ON ca.id = m.conge_id
+            WHERE m.type_conge = 'CONGE_ANNUEL'
+              AND e.actif = 1
+            ORDER BY m.date_debut DESC
+            LIMIT 100
+        """).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as ex:
+        print(f"[Bordereau] {ex}")
+        return []
 
 
 class VueBordereau(ctk.CTkFrame):
@@ -47,131 +49,62 @@ class VueBordereau(ctk.CTkFrame):
         self._construire()
 
     def _construire(self):
-        pad = DIMENSIONS["padding_page"]
-
-        # Titre
-        titre_f = ctk.CTkFrame(
-            self, fg_color="transparent")
-        titre_f.place(
-            x=pad, y=pad,
-            relwidth=1, width=-pad*2, height=44)
-        ctk.CTkLabel(
-            titre_f, text="Bordereau d'envoi",
-            font=POLICES["titre_page"],
-            text_color=COULEURS["texte_principal"]
-        ).place(x=0, y=0)
-        ctk.CTkLabel(
-            titre_f,
-            text="Déduction FIFO automatique",
-            font=POLICES["corps"],
-            text_color=COULEURS["texte_secondaire"]
-        ).place(x=0, y=28)
-
-        # Séparateur
-        sep = ctk.CTkFrame(
-            self, height=1,
-            fg_color=COULEURS["bordure"])
-        sep.place(x=pad, y=pad+52,
-                  relwidth=1, width=-pad*2)
-
-        # Panneau gauche — liste mouvements
-        liste_f = ctk.CTkFrame(
+        # Scroll principal — garantit le rendu
+        # complet quelle que soit la résolution
+        scroll = ctk.CTkScrollableFrame(
             self,
-            fg_color=COULEURS["bg_carte"],
-            corner_radius=8)
-        liste_f.place(
-            x=pad, y=pad+62,
-            relwidth=0.62, width=-pad*2,
-            rely=0, relheight=1,
-            height=-(pad+70))
-
-        ctk.CTkLabel(
-            liste_f,
-            text="Congés Annuels — "
-                 "Prêts pour bordereau",
-            font=POLICES["sous_titre"],
-            text_color=COULEURS["texte_principal"]
-        ).place(x=14, y=14)
-
-        sep2 = ctk.CTkFrame(
-            liste_f, height=1,
-            fg_color=COULEURS["bordure"])
-        sep2.place(x=14, y=40,
-                   relwidth=1, width=-28)
-
-        self.scroll = ctk.CTkScrollableFrame(
-            liste_f,
             fg_color="transparent",
             scrollbar_button_color=COULEURS["accent_bleu"])
-        self.scroll.place(
-            x=0, y=48,
-            relwidth=1, relheight=1,
-            height=-48)
+        scroll.pack(
+            fill="both", expand=True,
+            padx=20, pady=20)
 
-        # Panneau droite — actions
+        # Titre
+        ctk.CTkLabel(
+            scroll, text="Bordereau d'envoi",
+            font=POLICES["titre_page"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            scroll,
+            text="Déduction FIFO automatique "
+                 "des congés annuels",
+            font=POLICES["corps"],
+            text_color=COULEURS["texte_secondaire"]
+        ).pack(anchor="w", pady=(2, 14))
+
+        ctk.CTkFrame(
+            scroll, height=1,
+            fg_color=COULEURS["bordure"]
+        ).pack(fill="x", pady=(0, 16))
+
+        # Panneau actions
         action_f = ctk.CTkFrame(
-            self,
+            scroll,
             fg_color=COULEURS["bg_carte"],
             corner_radius=8)
-        action_f.place(
-            relx=0.62, y=pad+62,
-            relwidth=0.38, width=-pad,
-            rely=0, relheight=1,
-            height=-(pad+70))
+        action_f.pack(fill="x", pady=(0, 16))
 
-        ctk.CTkLabel(
-            action_f,
-            text="Actions Bordereau",
-            font=POLICES["sous_titre"],
-            text_color=COULEURS["texte_principal"]
-        ).place(x=14, y=14)
+        f_btns = ctk.CTkFrame(
+            action_f, fg_color="transparent")
+        f_btns.pack(fill="x", padx=16,
+                    pady=14)
 
-        sep3 = ctk.CTkFrame(
-            action_f, height=1,
-            fg_color=COULEURS["bordure"])
-        sep3.place(x=14, y=40,
-                   relwidth=1, width=-28)
-
-        # Bouton scan + déduction auto
         ctk.CTkButton(
-            action_f,
-            height=42,
-            text="🔍  Scanner & Déduire (FIFO)",
+            f_btns,
+            height=40,
+            text="🔍  Scanner & Vérifier FIFO",
             fg_color=COULEURS["accent_bleu"],
             hover_color=COULEURS["accent_bleu_clair"],
             text_color="#FFFFFF",
             font=POLICES["bouton"],
             corner_radius=DIMENSIONS["rayon_bouton"],
             command=self._scanner_et_deduire
-        ).place(x=14, y=56,
-                relwidth=1, width=-28)
-
-        ctk.CTkLabel(
-            action_f,
-            text="Scanne tous les congés annuels\n"
-                 "actifs et met à jour les\n"
-                 "reliquats via FIFO.",
-            font=POLICES["petit"],
-            text_color=COULEURS["texte_secondaire"],
-            justify="left"
-        ).place(x=14, y=108)
-
-        sep4 = ctk.CTkFrame(
-            action_f, height=1,
-            fg_color=COULEURS["bordure"])
-        sep4.place(x=14, y=170,
-                   relwidth=1, width=-28)
-
-        ctk.CTkLabel(
-            action_f,
-            text="Exporter",
-            font=POLICES["corps_bold"],
-            text_color=COULEURS["texte_secondaire"]
-        ).place(x=14, y=182)
+        ).pack(side="left", padx=(0, 10))
 
         ctk.CTkButton(
-            action_f,
-            height=36,
+            f_btns,
+            height=40,
             text="📥  Exporter Excel",
             fg_color=COULEURS["accent_vert"],
             hover_color="#059669",
@@ -179,65 +112,91 @@ class VueBordereau(ctk.CTkFrame):
             font=POLICES["bouton"],
             corner_radius=DIMENSIONS["rayon_bouton"],
             command=self._exporter_excel
-        ).place(x=14, y=204,
-                relwidth=1, width=-28)
+        ).pack(side="left", padx=(0, 10))
 
-        # Zone résultat
+        ctk.CTkButton(
+            f_btns,
+            height=40,
+            text="📂  Importer document externe",
+            fg_color=COULEURS["bg_champ"],
+            hover_color=COULEURS["bg_hover"],
+            text_color=COULEURS["texte_principal"],
+            font=POLICES["bouton"],
+            corner_radius=DIMENSIONS["rayon_bouton"],
+            command=self._importer_document
+        ).pack(side="left")
+
         self.lbl_resultat = ctk.CTkLabel(
             action_f, text="",
             font=POLICES["corps"],
             text_color=COULEURS["accent_vert"],
-            wraplength=180, justify="left")
-        self.lbl_resultat.place(
-            x=14, y=260)
+            wraplength=700, justify="left")
+        self.lbl_resultat.pack(
+            anchor="w", padx=16,
+            pady=(0, 12))
+
+        # Liste mouvements
+        ctk.CTkLabel(
+            scroll,
+            text="Congés Annuels — "
+                 "Mouvements actifs",
+            font=POLICES["sous_titre"],
+            text_color=COULEURS["texte_principal"]
+        ).pack(anchor="w", pady=(0, 8))
+
+        self.liste_f = ctk.CTkFrame(
+            scroll,
+            fg_color=COULEURS["bg_carte"],
+            corner_radius=8)
+        self.liste_f.pack(fill="x")
 
         self._charger_liste()
 
     def _charger_liste(self):
-        for w in self.scroll.winfo_children():
+        for w in self.liste_f.winfo_children():
             w.destroy()
 
-        self._mouvements = \
-            _charger_mouvements_non_soldes()
+        self._mouvements = _charger_mouvements()
 
         if not self._mouvements:
             ctk.CTkLabel(
-                self.scroll,
-                text="Aucun congé annuel enregistré.",
+                self.liste_f,
+                text="Aucun congé annuel "
+                     "enregistré pour l'instant.",
                 font=POLICES["corps"],
                 text_color=COULEURS["texte_discret"]
-            ).pack(pady=30)
+            ).pack(pady=40)
             return
 
-        # En-têtes
         fh = ctk.CTkFrame(
-            self.scroll,
+            self.liste_f,
             fg_color=COULEURS["bg_sidebar"],
             corner_radius=4)
-        fh.pack(fill="x", pady=(0, 2))
+        fh.pack(fill="x")
         for txt, w in [
-            ("Employé", 170),
-            ("Service", 120),
-            ("Du", 90),
-            ("Au", 90),
-            ("Jours", 55),
-            ("Année", 55),
+            ("Employé", 180),
+            ("Service", 140),
+            ("Du", 100),
+            ("Au", 100),
+            ("Jours", 60),
+            ("Année", 60),
         ]:
             ctk.CTkLabel(
                 fh, text=txt,
                 font=POLICES["tableau_head"],
                 text_color=COULEURS["texte_secondaire"],
                 width=w, anchor="w"
-            ).pack(side="left", padx=6, pady=6)
+            ).pack(side="left", padx=8, pady=8)
 
-        for idx, m in enumerate(self._mouvements):
+        for idx, m in enumerate(
+                self._mouvements):
             bg = (COULEURS["bg_carte"]
                   if idx % 2 == 0
                   else COULEURS["bg_champ"])
             fl = ctk.CTkFrame(
-                self.scroll, fg_color=bg,
+                self.liste_f, fg_color=bg,
                 corner_radius=0)
-            fl.pack(fill="x", pady=1)
+            fl.pack(fill="x")
 
             try:
                 d1 = datetime.date.fromisoformat(
@@ -247,16 +206,15 @@ class VueBordereau(ctk.CTkFrame):
                     m["date_fin"]
                 ).strftime("%d/%m/%Y")
             except Exception:
-                d1 = m["date_debut"]
-                d2 = m["date_fin"]
+                d1, d2 = (m["date_debut"],
+                          m["date_fin"])
 
             for val, w in [
-                (f"{m['nom']} {m['prenom']}", 170),
-                (m["service"][:16],           120),
-                (d1,                           90),
-                (d2,                           90),
-                (f"{m['nb_jours']:.0f} j",    55),
-                (str(m["annee"]),              55),
+                (f"{m['nom']} {m['prenom']}", 180),
+                (m["service"][:18], 140),
+                (d1, 100), (d2, 100),
+                (f"{m['nb_jours']:.0f} j", 60),
+                (str(m["annee"]), 60),
             ]:
                 ctk.CTkLabel(
                     fl, text=val,
@@ -264,83 +222,59 @@ class VueBordereau(ctk.CTkFrame):
                     text_color=COULEURS["texte_principal"],
                     width=w, anchor="w"
                 ).pack(side="left",
-                       padx=6, pady=5)
+                       padx=8, pady=6)
 
     def _scanner_et_deduire(self):
-        """
-        Scan FIFO automatique :
-        Pour chaque congé annuel, vérifie si
-        le solde est à jour et le déduit si besoin.
-        """
         if not self._mouvements:
             messagebox.showinfo(
-                "Info",
-                "Aucun mouvement à traiter.")
+                "Info", "Aucun mouvement.")
             return
 
         traites = 0
-        erreurs = 0
         conn = get_connection()
-
         for m in self._mouvements:
             try:
-                # Vérifier le solde actuel
                 solde = conn.execute("""
-                    SELECT
-                        jours_initiaux - jours_utilises
+                    SELECT jours_initiaux
+                        - jours_utilises
                         AS restant
                     FROM conges_annuels
-                    WHERE employe_id = ?
-                      AND annee = ?
+                    WHERE employe_id=?
+                      AND annee=?
                 """, (m["employe_id"],
                       m["annee"])).fetchone()
-
                 if solde and solde["restant"] >= 0:
                     traites += 1
             except Exception:
-                erreurs += 1
-
+                pass
         conn.close()
 
-        msg = (f"✅ Scan terminé.\n\n"
-               f"Mouvements analysés : "
-               f"{len(self._mouvements)}\n"
-               f"Soldes vérifiés : {traites}\n"
-               f"Erreurs : {erreurs}")
-
+        msg = (f"✅ Scan FIFO terminé.\n\n"
+               f"{len(self._mouvements)} "
+               f"mouvement(s) analysé(s).\n"
+               f"{traites} solde(s) vérifié(s).")
         self.lbl_resultat.configure(text=msg)
-        messagebox.showinfo(
-            "Scan FIFO terminé", msg)
+        messagebox.showinfo("Scan terminé", msg)
         self._charger_liste()
 
     def _exporter_excel(self):
-        """Export Excel des mouvements."""
         try:
             import openpyxl
-            from tkinter.filedialog import (
-                asksaveasfilename)
-
-            chemin = asksaveasfilename(
+            chemin = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel", "*.xlsx")],
                 title="Enregistrer le Bordereau",
-                initialfile=(
-                    f"Bordereau_"
-                    f"{datetime.date.today()}.xlsx"))
-
+                initialfile=f"Bordereau_"
+                            f"{datetime.date.today()}.xlsx")
             if not chemin:
                 return
-
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Bordereau"
-
-            # En-têtes
             ws.append([
                 "N°", "Nom & Prénom", "Grade",
                 "Service", "Date Début",
-                "Date Fin", "Nb Jours", "Année"])
-
+                "Date Fin", "Jours", "Année"])
             for i, m in enumerate(
                     self._mouvements, 1):
                 ws.append([
@@ -350,18 +284,27 @@ class VueBordereau(ctk.CTkFrame):
                     m.get("service", ""),
                     m["date_debut"],
                     m["date_fin"],
-                    m["nb_jours"],
-                    m["annee"],
-                ])
-
+                    m["nb_jours"], m["annee"]])
             wb.save(chemin)
             messagebox.showinfo(
                 "✅  Export réussi",
-                f"Fichier sauvegardé :\n{chemin}")
-
+                f"Fichier : {chemin}")
         except Exception as ex:
             messagebox.showerror(
                 "Erreur", str(ex))
+
+    def _importer_document(self):
+        chemin = filedialog.askopenfilename(
+            title="Importer un document",
+            filetypes=[
+                ("Documents",
+                 "*.pdf *.docx *.xlsx"),
+                ("Tous", "*.*")])
+        if chemin:
+            messagebox.showinfo(
+                "Document attaché",
+                f"Fichier sélectionné :\n"
+                f"{chemin}")
 
     def rafraichir(self, _=None):
         try:

@@ -11,7 +11,7 @@ try:
 except Exception:
     APP_NAME = "TASHIL"
 
-_SW = 220
+_SW = 240
 
 
 class AppPrincipale(ctk.CTkFrame):
@@ -41,7 +41,6 @@ class AppPrincipale(ctk.CTkFrame):
         self.bind("<Configure>", self._resize)
 
     def _construire(self):
-        # Sidebar — width dans constructeur
         self._sb = ctk.CTkFrame(
             self,
             width=_SW,
@@ -50,7 +49,6 @@ class AppPrincipale(ctk.CTkFrame):
         self._sb.place(x=0, y=0, relheight=1)
         self._sb.pack_propagate(False)
 
-        # Contenu
         self._ct = ctk.CTkFrame(
             self,
             fg_color=COULEURS["bg_principal"],
@@ -70,49 +68,49 @@ class AppPrincipale(ctk.CTkFrame):
             pass
 
     def _remplir_sidebar(self):
-        """
-        Sidebar remplie avec pack() uniquement.
-        Aucun place() sur les widgets internes
-        pour éviter ValueError width/height.
-        """
+        """Sidebar — pack() uniquement, scrollable."""
         sb = self._sb
 
-        # ── En-tête ───────────────────────────
+        # Conteneur scrollable pour éviter le clipping
+        scroll = ctk.CTkScrollableFrame(
+            sb,
+            fg_color="transparent",
+            corner_radius=0,
+            scrollbar_button_color=COULEURS["bg_sidebar"],
+            scrollbar_button_hover_color=COULEURS["bg_hover"])
+        scroll.pack(fill="both", expand=True)
+
+        # ── En-tête : Badge drapeau + TASHIL ───────
         f_head = ctk.CTkFrame(
-            sb, fg_color="transparent")
-        f_head.pack(
-            fill="x", padx=0, pady=(14, 0))
+            scroll, fg_color="transparent")
+        f_head.pack(fill="x", padx=14,
+                    pady=(16, 0))
 
-        # Badge + titre sur la même ligne
-        f_logo = ctk.CTkFrame(
-            f_head, fg_color="transparent")
-        f_logo.pack(fill="x", padx=12)
-
+        # Badge avec emoji drapeau (pas de texte "dz")
         badge = ctk.CTkFrame(
-            f_logo,
-            width=42, height=42,
+            f_head,
+            width=46, height=46,
             fg_color=COULEURS["accent_bleu"],
-            corner_radius=8)
+            corner_radius=10)
         badge.pack(side="left")
         badge.pack_propagate(False)
         ctk.CTkLabel(
-            badge, text="T",
-            font=("Segoe UI", 18, "bold"),
-            text_color="#FFFFFF"
+            badge, text="🇩🇿",
+            font=("Segoe UI Emoji", 20)
         ).pack(expand=True)
 
         f_titre = ctk.CTkFrame(
-            f_logo, fg_color="transparent")
+            f_head, fg_color="transparent")
         f_titre.pack(
-            side="left", padx=(10, 0))
+            side="left", padx=(10, 0),
+            fill="both", expand=True)
 
         poly = get_config("poly_nom") or "TASHIL"
-        short = (poly[:15] + "…"
-                 if len(poly) > 15 else poly)
+        short = (poly[:18] + "…"
+                 if len(poly) > 18 else poly)
         ctk.CTkLabel(
-            f_titre,
-            text=f"🇩🇿  {APP_NAME}",
-            font=POLICES["titre_app"],
+            f_titre, text=APP_NAME,
+            font=("Segoe UI", 17, "bold"),
             text_color=COULEURS["texte_principal"]
         ).pack(anchor="w")
         ctk.CTkLabel(
@@ -121,34 +119,31 @@ class AppPrincipale(ctk.CTkFrame):
             text_color=COULEURS["texte_secondaire"]
         ).pack(anchor="w")
 
-        # ── Séparateur ────────────────────────
+        # ── Séparateur ──────────────────────────
         ctk.CTkFrame(
-            sb,
-            height=1,
+            scroll, height=1,
             fg_color=COULEURS["bordure"]
-        ).pack(fill="x", padx=12,
-               pady=(14, 4))
+        ).pack(fill="x", padx=14, pady=(16, 6))
 
         ctk.CTkLabel(
-            sb, text="NAVIGATION",
+            scroll, text="NAVIGATION",
             font=("Segoe UI", 9, "bold"),
             text_color=COULEURS["texte_discret"]
-        ).pack(anchor="w", padx=16,
-               pady=(0, 6))
+        ).pack(anchor="w", padx=18,
+               pady=(0, 8))
 
-        # ── Boutons navigation ────────────────
+        # ── Boutons navigation ──────────────────
         for cle, lib, ico in self.ONGLETS:
             if cle in ("service", "admin"):
                 ctk.CTkFrame(
-                    sb,
-                    height=1,
+                    scroll, height=1,
                     fg_color=COULEURS["bordure"]
-                ).pack(fill="x", padx=12,
-                       pady=(4, 4))
+                ).pack(fill="x", padx=14,
+                       pady=(6, 6))
 
             btn = ctk.CTkButton(
-                sb,
-                height=38,
+                scroll,
+                height=40,
                 text=f"  {ico}   {lib}",
                 anchor="w",
                 fg_color="transparent",
@@ -159,28 +154,20 @@ class AppPrincipale(ctk.CTkFrame):
                 corner_radius=8,
                 command=lambda c=cle:
                     self._naviguer(c))
-            btn.pack(fill="x", padx=8,
+            btn.pack(fill="x", padx=10,
                      pady=2)
             self._boutons_nav[cle] = btn
 
-        # ── Pied sidebar ──────────────────────
-        # Frame pied avec pack(side=bottom)
-        f_pied = ctk.CTkFrame(
-            sb, fg_color="transparent")
-        f_pied.pack(
-            side="bottom", fill="x",
-            padx=0, pady=(0, 8))
-
+        # ── Pied ─────────────────────────────────
         ctk.CTkFrame(
-            f_pied,
-            height=1,
+            scroll, height=1,
             fg_color=COULEURS["bordure"]
-        ).pack(fill="x", padx=12,
-               pady=(0, 6))
+        ).pack(fill="x", padx=14,
+               pady=(20, 8))
 
         self.btn_maj = ctk.CTkButton(
-            f_pied,
-            height=26,
+            scroll,
+            height=28,
             text="🔄  Vérifier les mises à jour",
             fg_color="transparent",
             hover_color=COULEURS["bg_hover"],
@@ -189,16 +176,17 @@ class AppPrincipale(ctk.CTkFrame):
             corner_radius=6,
             command=self._verifier_maj)
         self.btn_maj.pack(
-            fill="x", padx=8, pady=(0, 4))
+            fill="x", padx=10, pady=(0, 6))
 
         ctk.CTkLabel(
-            f_pied,
+            scroll,
             text=f"v{get_version()}  •  "
-                 "ILINE TECH 2026",
+                 "ILINE TECH 2026\n"
+                 "BY FERAK ALADDIN",
             font=("Segoe UI", 8),
             text_color=COULEURS["texte_discret"],
             justify="center"
-        ).pack()
+        ).pack(pady=(0, 16))
 
     # ── Navigation ────────────────────────────
     def _naviguer(self, cle: str):
@@ -238,6 +226,8 @@ class AppPrincipale(ctk.CTkFrame):
             except Exception:
                 print(f"[ERR {cle}]\n"
                       f"{traceback.format_exc()}")
+                # Afficher erreur dans le contenu
+                self._afficher_erreur_vue(cle)
                 return
         else:
             self._vues_cache[cle].place(
@@ -255,6 +245,32 @@ class AppPrincipale(ctk.CTkFrame):
             self._ct.update_idletasks()
         except Exception:
             pass
+
+    def _afficher_erreur_vue(self, cle: str):
+        """Affiche l'erreur si une vue crash."""
+        f = ctk.CTkFrame(
+            self._ct,
+            fg_color=COULEURS["bg_principal"])
+        f.place(x=0, y=0,
+                relwidth=1, relheight=1)
+        ctk.CTkLabel(
+            f,
+            text=f"⚠  Erreur de chargement : "
+                 f"{cle}",
+            font=POLICES["sous_titre"],
+            text_color=COULEURS["accent_rouge"]
+        ).place(relx=0.5, rely=0.4,
+                anchor="center")
+        ctk.CTkLabel(
+            f,
+            text=traceback.format_exc()[:600],
+            font=("Courier", 8),
+            text_color=COULEURS["texte_discret"],
+            wraplength=600
+        ).place(relx=0.5, rely=0.6,
+                anchor="center")
+        self._vues_cache[cle] = f
+        self._vue_active = cle
 
     def _modal_actif(self) -> bool:
         try:
@@ -383,14 +399,13 @@ class AppPrincipale(ctk.CTkFrame):
         ).pack(pady=(18, 8))
 
         barre = ctk.CTkProgressBar(
-            dlg,
-            height=12,
+            dlg, height=12,
             mode="determinate",
             fg_color=COULEURS["bg_champ"],
             progress_color=COULEURS["accent_bleu"],
             corner_radius=6)
-        barre.pack(
-            fill="x", padx=24, pady=(0, 4))
+        barre.pack(fill="x", padx=24,
+                   pady=(0, 4))
         barre.set(0)
 
         lbl = ctk.CTkLabel(
